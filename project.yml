@@ -13,6 +13,22 @@ targets:
     deploymentTarget: "16.0"
     info:
       path: StreetlightMapper/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: StreetlightMapper
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSupportsIndirectInputEvents: true
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIRequiredDeviceCapabilities:
+          - arm64
+        NSCameraUsageDescription: StreetlightMapper uses the camera to scan Pole ID labels and street light QR codes.
+        NSLocalNetworkUsageDescription: StreetlightMapper hosts a local REST API so external systems (e.g. SAP) can retrieve captured data over the local network.
+        NSBonjourServices:
+          - _http._tcp
     sources:
       - path: StreetlightMapper
         excludes:
