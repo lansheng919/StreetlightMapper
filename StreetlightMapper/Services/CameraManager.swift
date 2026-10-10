@@ -9,6 +9,9 @@ struct ScanResult {
     let value: String
     let confidence: Float   // 0…1
     let type: ScanType
+    /// False when the value does not match the expected format (e.g. not a 5–10 digit Pole ID).
+    /// Such results are shown for the technician to verify but never auto-captured.
+    var isValidFormat: Bool = true
 }
 
 enum ScanType {
@@ -152,31 +155,28 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         let request = VNRecognizeTextRequest { [weak self] req, _ in
             guard let observations = req.results as? [VNRecognizedTextObservation] else { return }
 
-            // Pick the highest-confidence candidate that looks like a Pole ID
-            let candidates = observations.compactMap { obs in
-                obs.topCandidates(1).first
+            let lines: [OCRLine] = observations.compactMap { obs in
+                guard let top = obs.topCandidates(1).first else { return nil }
+                return OCRLine(text: top.string, confidence: top.confidence, box: obs.boundingBox)
             }
 
-            // Pole IDs are typically alphanumeric codes, 4–16 chars
-            let best = candidates
-                .filter { !$0.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                .filter { $0.string.count >= 3 }
-                .sorted { $0.confidence > $1.confidence }
-                .first
-
-            guard let top = best else { return }
-
-            let result = ScanResult(
-                value: top.string.trimmingCharacters(in: .whitespacesAndNewlines),
-                confidence: top.confidence,
-                type: .ocrText
-            )
+            let result: ScanResult
+            if let id = PoleIDExtractor.extract(from: lines) {
+                // Valid 5–10 digit Pole ID (horizontal or stacked digits)
+                result = ScanResult(value: id.value, confidence: id.confidence, type: .ocrText)
+            } else if let guess = PoleIDExtractor.suggestion(from: lines) {
+                // Digits seen but not a valid ID: show for verification, never auto-capture
+                result = ScanResult(value: guess, confidence: 0, type: .ocrText, isValidFormat: false)
+            } else {
+                return
+            }
             DispatchQueue.main.async { self?.latestResult = result }
         }
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
 
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        // Back-camera buffers are landscape; the app is portrait-only, so rotate upright.
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .right, options: [:])
         try? handler.perform([request])
     }
 
@@ -199,7 +199,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
         request.symbologies = [.qr, .code128, .dataMatrix]
 
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .right, options: [:])
         try? handler.perform([request])
     }
 }

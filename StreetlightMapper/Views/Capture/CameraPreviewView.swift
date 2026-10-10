@@ -33,6 +33,7 @@ struct ScanOverlayView: View {
     let detectedValue: String
     let confidence: Float
     let isHighConfidence: Bool
+    let isStabilising: Bool                  // confident read, waiting for repeat confirmations
     let isCapturing: Bool
     let prompt: String                       // e.g. "Point at Pole ID label"
 
@@ -110,7 +111,9 @@ struct ScanOverlayView: View {
 
     private var confidenceLabel: String {
         let pct = Int(confidence * 100)
-        return isHighConfidence ? "✓ \(pct)% confidence" : "⚠ \(pct)% – verify required"
+        if isHighConfidence { return "✓ \(pct)% confidence" }
+        if isStabilising { return "Hold steady… \(pct)%" }
+        return "⚠ \(pct)% – verify required"
     }
 }
 

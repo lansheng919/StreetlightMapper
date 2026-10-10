@@ -21,6 +21,7 @@ struct PoleIDCaptureView: View {
                 detectedValue: vm.detectedValue,
                 confidence: vm.confidence,
                 isHighConfidence: vm.isHighConfidence,
+                isStabilising: vm.isStabilising,
                 isCapturing: vm.isCapturing,
                 prompt: "Point at the Pole ID label"
             )
@@ -67,15 +68,15 @@ struct PoleIDCaptureView: View {
             if vm.capturedPhotoData == nil {
                 // Show manual-entry prompt when confidence is low and value detected
                 if !vm.detectedValue.isEmpty && !vm.isHighConfidence {
-                    Button(action: { vm.showManualEntry = true }) {
+                    Button(action: { vm.beginManualEntry() }) {
                         Label("Verify / Update Pole ID", systemImage: "pencil.circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(ActionButtonStyle(color: .orange))
                 }
 
-                // Allow forced capture any time
-                Button(action: { vm.camera.capturePhoto() }) {
+                // Shutter: captures directly only when high confidence, otherwise asks to verify first
+                Button(action: { vm.shutterTapped() }) {
                     Image(systemName: "camera.circle.fill")
                         .font(.system(size: 64))
                         .foregroundColor(.white)
@@ -97,7 +98,8 @@ struct PoleIDCaptureView: View {
                     .font(.caption)
                     .foregroundColor(.yellow)
 
-                TextField("Pole ID", text: $vm.manualEntryText)
+                TextField("Pole ID (5–10 digits)", text: $vm.manualEntryText)
+                    .keyboardType(.numberPad)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding(12)

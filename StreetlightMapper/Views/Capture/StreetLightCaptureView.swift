@@ -18,6 +18,7 @@ struct StreetLightCaptureView: View {
                 detectedValue: vm.detectedValue,
                 confidence: vm.confidence,
                 isHighConfidence: vm.isHighConfidence,
+                isStabilising: vm.isStabilising,
                 isCapturing: vm.isCapturing,
                 prompt: "Point at street light QR code"
             )
@@ -72,14 +73,14 @@ struct StreetLightCaptureView: View {
         VStack(spacing: 12) {
             if vm.capturedPhotoData == nil {
                 if !vm.detectedValue.isEmpty && !vm.isHighConfidence {
-                    Button(action: { vm.showManualEntry = true }) {
+                    Button(action: { vm.beginManualEntry() }) {
                         Label("Verify / Update Serial Number", systemImage: "pencil.circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(ActionButtonStyle(color: .orange))
                 }
 
-                Button(action: { vm.camera.capturePhoto() }) {
+                Button(action: { vm.shutterTapped() }) {
                     Image(systemName: "camera.circle.fill")
                         .font(.system(size: 64))
                         .foregroundColor(.white)

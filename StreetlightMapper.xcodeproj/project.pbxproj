@@ -24,6 +24,7 @@
 		C697E484B4E293CBAB977C82 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C05E1C08CAD67B66170D5B /* DebugView.swift */; };
 		D6EB6C6F597A4E7461894C48 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5BE1E0824ADBD33E582933 /* CaptureViewModel.swift */; };
 		F10C9220D2927037126DA189 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A94AA0BBB91D47F45D381C7 /* CameraManager.swift */; };
+		F96DF29445326AF2808248F2 /* PoleIDExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E80DFFC401AC301934C4ABF /* PoleIDExtractor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,11 +38,12 @@
 		5F064EF947DEC510EF7DDF2A /* ConnectivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityMonitor.swift; sourceTree = "<group>"; };
 		677BA8EA2911FC9DCC868629 /* PoleIDCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDCaptureView.swift; sourceTree = "<group>"; };
 		6A94AA0BBB91D47F45D381C7 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
-		6DD8F48CBEA74977A052CCD1 /* StreetlightMapper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StreetlightMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DD8F48CBEA74977A052CCD1 /* StreetlightMapper.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = StreetlightMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A8686DE43252ABFC5980A33 /* ActionButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonStyle.swift; sourceTree = "<group>"; };
 		82C05E1C08CAD67B66170D5B /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
 		98D4680FDED9C7FD0EB08245 /* SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncService.swift; sourceTree = "<group>"; };
 		9DAE7786D87C3132F20DB05E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		9E80DFFC401AC301934C4ABF /* PoleIDExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDExtractor.swift; sourceTree = "<group>"; };
 		B49875B6F47AC54F73CAF9D5 /* StreetlightMapperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetlightMapperApp.swift; sourceTree = "<group>"; };
 		C558EB64B96AA71166468972 /* WorkflowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViewModel.swift; sourceTree = "<group>"; };
 		FA5BE1E0824ADBD33E582933 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 			children = (
 				6A94AA0BBB91D47F45D381C7 /* CameraManager.swift */,
 				5F064EF947DEC510EF7DDF2A /* ConnectivityMonitor.swift */,
+				9E80DFFC401AC301934C4ABF /* PoleIDExtractor.swift */,
 				98D4680FDED9C7FD0EB08245 /* SyncService.swift */,
 			);
 			path = Services;
@@ -198,6 +201,7 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					0351F6F9F4F1799F1D6FC633 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -236,6 +240,7 @@
 				C697E484B4E293CBAB977C82 /* DebugView.swift in Sources */,
 				868EA3826EF71C3DE4DFEAAF /* MockSAPServer.swift in Sources */,
 				7D025D36467AE32F862C7CEE /* PoleIDCaptureView.swift in Sources */,
+				F96DF29445326AF2808248F2 /* PoleIDExtractor.swift in Sources */,
 				6118F6345D9E339669065BB7 /* SessionListView.swift in Sources */,
 				C036A7AC41CAB31F0A666771 /* SessionReviewView.swift in Sources */,
 				532C0CA08962676ECD1EF00C /* SessionStore.swift in Sources */,
@@ -256,7 +261,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BNN2PUJPA4;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = StreetlightMapper/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -278,7 +283,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = BNN2PUJPA4;
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = StreetlightMapper/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
