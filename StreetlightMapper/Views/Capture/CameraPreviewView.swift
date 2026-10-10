@@ -56,10 +56,8 @@ struct ScanOverlayView: View {
                     .animation(.easeOut(duration: 0.25), value: isCapturing)
             }
 
-            VStack {
-                Spacer()
-
-                // Status badge
+            // Status text sits just below the reticle, clear of the shutter button.
+            Group {
                 if !detectedValue.isEmpty {
                     VStack(spacing: 4) {
                         Text(detectedValue)
@@ -81,7 +79,6 @@ struct ScanOverlayView: View {
                     .padding(.vertical, 10)
                     .background(badgeBg)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .padding(.bottom, 32)
                 } else {
                     Text(prompt)
                         .font(.subheadline)
@@ -90,9 +87,9 @@ struct ScanOverlayView: View {
                         .padding(.vertical, 8)
                         .background(Color.black.opacity(0.5))
                         .clipShape(Capsule())
-                        .padding(.bottom, 32)
                 }
             }
+            .offset(y: 125)
         }
     }
 
