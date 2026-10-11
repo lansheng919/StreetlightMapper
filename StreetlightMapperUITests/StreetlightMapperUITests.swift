@@ -208,6 +208,17 @@ final class StreetlightMapperUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Already sent to the server, so it can't be deleted here."].exists)
     }
 
+    func testDeleteAllCapturesFromIntegrationTab() {
+        launch(syncedSeed: true)                      // even a synced capture is wiped by the reset
+        tap(app.tabBars.buttons["Integration"])
+        let button = app.buttons["debug.deleteAll"]
+        app.swipeUp()
+        tap(button)
+        tap(app.buttons["Yes, Delete All"])
+        tap(app.tabBars.buttons["History"])
+        XCTAssertTrue(app.staticTexts["No sessions yet"].waitForExistence(timeout: 5))
+    }
+
     func testDeleteFromHistoryDetail() {
         launch(seeded: true)
         tap(app.tabBars.buttons["History"])

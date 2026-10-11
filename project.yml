@@ -40,6 +40,7 @@ targets:
         DEVELOPMENT_TEAM: ""        # set your team ID here
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: StreetlightMapper/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"  # iPhone only

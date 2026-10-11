@@ -9,7 +9,9 @@ struct DebugView: View {
     @EnvironmentObject private var mockServer: MockSAPServer
     @EnvironmentObject private var sync: SyncService
     @EnvironmentObject private var store: SessionStore
+    @EnvironmentObject private var workflow: WorkflowViewModel
 
+    @State private var confirmReset = false
     @State private var curlOutput = ""
     @State private var showCopied = false
 
@@ -20,10 +22,21 @@ struct DebugView: View {
                 endpointsSection
                 receivedSection
                 syncSection
+                resetSection
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Integration Test")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Delete all captures?", isPresented: $confirmReset) {
+                Button("Yes, Delete All", role: .destructive) {
+                    workflow.discardDraft()
+                    store.deleteAll()
+                    mockServer.clearReceived()
+                }
+                Button("Keep them", role: .cancel) {}
+            } message: {
+                Text("Every capture and photo on this phone will be removed, including ones already synced. The mock server's received list is cleared too. This cannot be undone.")
+            }
         }
     }
 
@@ -166,6 +179,19 @@ struct DebugView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+}
+
+extension DebugView {
+    private var resetSection: some View {
+        Section(header: Text("Reset"),
+                footer: Text("Clears all test data so you can start fresh. Real SAP data is not affected.")) {
+            Button(role: .destructive) { confirmReset = true } label: {
+                Label("Delete All Captures", systemImage: "trash")
+            }
+            .disabled(store.sessions.isEmpty && !workflow.hasDraft && mockServer.receivedSessions.isEmpty)
+            .accessibilityIdentifier("debug.deleteAll")
         }
     }
 }

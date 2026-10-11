@@ -53,6 +53,14 @@ final class SessionStore: ObservableObject {
         save()
     }
 
+    /// Wipes every capture and every stored photo, including ones already synced.
+    /// This is an explicit reset; the normal delete rules do not apply.
+    func deleteAll() {
+        sessions.removeAll()
+        try? FileManager.default.removeItem(at: baseDir.appendingPathComponent("photos", isDirectory: true))
+        save()
+    }
+
     /// Deletes the pole and street-light photo files of a session from disk.
     func deletePhotos(of session: CaptureSession) {
         let paths = [session.polePotoPath].compactMap { $0 } + session.streetLights.compactMap { $0.photoPath }

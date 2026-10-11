@@ -109,6 +109,24 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 
+    func testDeleteAllRemovesEverythingIncludingSyncedAndPhotos() throws {
+        let store = SessionStore(directory: dir)
+        var synced = TestSupport.makeSession(pole: "111111", lights: [])
+        let path = try XCTUnwrap(store.savePhoto(Data([1]), name: "pole_all.jpg"))
+        synced.polePotoPath = path
+        synced.addStreetLight(StreetLightEntry(sessionID: synced.id, serialNumber: "E1", confidence: .high))
+        synced.markSynced()
+        store.addSession(synced)
+        store.addSession(TestSupport.makeSession(pole: "222222"))
+
+        store.deleteAll()
+
+        XCTAssertTrue(store.sessions.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.photoURL(relativePath: path)!.path))
+        XCTAssertTrue(SessionStore(directory: dir).sessions.isEmpty, "reset is persisted")
+        XCTAssertNotNil(store.savePhoto(Data([2]), name: "after.jpg"), "photos folder is recreated on demand")
+    }
+
     func testInterruptedUploadBecomesFailedOnLoad() {
         let store = SessionStore(directory: dir)
         var s = TestSupport.makeSession()

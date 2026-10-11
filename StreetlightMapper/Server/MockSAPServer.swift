@@ -26,6 +26,11 @@ final class MockSAPServer: ObservableObject {
     private let serverQueue = DispatchQueue(label: "com.slmapper.mockserver", qos: .background)
     private let encoder = JSONEncoder()
 
+    /// Forgets everything the mock server has received (it only lives in memory anyway).
+    func clearReceived() {
+        receivedSessions.removeAll()
+    }
+
     // MARK: Start / Stop
 
     func start(port: UInt16 = 8080) {
@@ -60,20 +65,35 @@ final class MockSAPServer: ObservableObject {
         receive(on: connection)
     }
 
-    private func receive(on connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, _ in
-            guard let self = self, let data = data, !data.isEmpty else {
-                if isComplete { connection.cancel() }
-                return
-            }
+    /// Reads until the whole request has arrived. Headers and body often come in separate
+    /// TCP segments, so a single read can see a POST with an empty body.
+    private func receive(on connection: NWConnection, buffer: Data = Data()) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+            guard let self = self else { return }
+            var buffer = buffer
+            if let data = data { buffer.append(data) }
 
-            guard let raw = String(data: data, encoding: .utf8) else {
-                connection.cancel()
-                return
+            if self.isComplete(request: buffer) || isComplete || error != nil {
+                guard !buffer.isEmpty, let raw = String(data: buffer, encoding: .utf8) else {
+                    connection.cancel()
+                    return
+                }
+                self.route(raw: raw, connection: connection)
+            } else {
+                self.receive(on: connection, buffer: buffer)
             }
-
-            self.route(raw: raw, connection: connection)
         }
+    }
+
+    /// True once the headers are in and the body is as long as Content-Length says.
+    private func isComplete(request buffer: Data) -> Bool {
+        guard let headerEnd = buffer.range(of: Data("\r\n\r\n".utf8)) else { return false }
+        let headers = String(decoding: buffer[..<headerEnd.lowerBound], as: UTF8.self)
+        var expected = 0
+        for line in headers.components(separatedBy: "\r\n") where line.lowercased().hasPrefix("content-length:") {
+            expected = Int(line.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+        return buffer.count - headerEnd.upperBound >= expected
     }
 
     // MARK: Routing

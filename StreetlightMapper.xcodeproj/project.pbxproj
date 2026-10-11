@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0331B10ECCCA1B7C0F2785E9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BF703F966510733A89BC3E06 /* Assets.xcassets */; };
 		130609F496D1C10E91B4C472 /* WorkflowViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 574058EB02D22F3334487A17 /* WorkflowViewModelTests.swift */; };
 		1A9C8C575082FE8FEBC66440 /* CaptureChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F18C37409CECAC71DAF7E5 /* CaptureChrome.swift */; };
 		1F000861893E375F24078909 /* ActionButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A8686DE43252ABFC5980A33 /* ActionButtonStyle.swift */; };
@@ -81,6 +82,7 @@
 		9DAE7786D87C3132F20DB05E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		9E80DFFC401AC301934C4ABF /* PoleIDExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDExtractor.swift; sourceTree = "<group>"; };
 		B49875B6F47AC54F73CAF9D5 /* StreetlightMapperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetlightMapperApp.swift; sourceTree = "<group>"; };
+		BF703F966510733A89BC3E06 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C558EB64B96AA71166468972 /* WorkflowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViewModel.swift; sourceTree = "<group>"; };
 		D459B360869ED318EB41314F /* PoleIDExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDExtractorTests.swift; sourceTree = "<group>"; };
 		E33DA0D7C85239C4FBA759DD /* MockSAPServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSAPServerTests.swift; sourceTree = "<group>"; };
@@ -151,6 +153,14 @@
 			path = StreetlightMapperTests;
 			sourceTree = "<group>";
 		};
+		559F0DA14FBC0E6AA91EF66E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				BF703F966510733A89BC3E06 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		76C3266DC678460834257F8B /* Session */ = {
 			isa = PBXGroup;
 			children = (
@@ -204,6 +214,7 @@
 				B49875B6F47AC54F73CAF9D5 /* StreetlightMapperApp.swift */,
 				0978BA52ECCCCEAB78DBFC6A /* Models */,
 				B93B99BA1D1499730FF25046 /* Persistence */,
+				559F0DA14FBC0E6AA91EF66E /* Resources */,
 				8606BE38C1E7B1CDA68030F1 /* Server */,
 				A71239DDEB79FC43D1964CF1 /* Services */,
 				24306765991D2FBAD0781A36 /* ViewModels */,
@@ -254,6 +265,7 @@
 			buildConfigurationList = FBB8DC9E1F0FE717D1B2FD96 /* Build configuration list for PBXNativeTarget "StreetlightMapper" */;
 			buildPhases = (
 				904F6E3EB786FABCF7081D1A /* Sources */,
+				BF0C28DFA4CE0C7A81E627F1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -340,6 +352,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BF0C28DFA4CE0C7A81E627F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0331B10ECCCA1B7C0F2785E9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		582C953ED3AE483FEF45CA93 /* Sources */ = {

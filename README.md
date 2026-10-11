@@ -132,6 +132,11 @@ SAP_BASE_URL = https://your-sap-host/api/v1
 ### 7. Deleting captures
 - A capture that has **not reached the server** (pending or failed) can be deleted from the review screen, its History detail page, or by swiping in History. Its photos are deleted too, after a confirmation.
 - Once a capture has been synced it cannot be deleted from the phone (the server would keep an orphan copy). This also applies if it is edited after syncing.
+- To clear everything (including synced captures and photos) while testing, use **Integration → Delete All Captures**. It also clears the mock server's received list.
+
+### 8. App icon
+- The icon lives in `StreetlightMapper/Resources/Assets.xcassets/AppIcon.appiconset` (a single 1024×1024 image; Xcode generates the other sizes).
+- It is drawn by [`tools/make_icon.swift`](tools/make_icon.swift). To change it, edit that script and run `swift tools/make_icon.swift StreetlightMapper/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png`, or drop in your own opaque 1024×1024 PNG with the same name.
 
 ---
 

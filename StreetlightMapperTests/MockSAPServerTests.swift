@@ -1,4 +1,5 @@
 import XCTest
+import Network
 @testable import StreetlightMapper
 
 // Requirement 4: REST API usable without a live SAP. These talk to the real embedded
@@ -57,6 +58,33 @@ final class MockSAPServerTests: XCTestCase {
     }
 
     // MARK: tests
+
+    /// Headers and body arriving in separate TCP segments must still be handled as one request.
+    func testPostWithHeadersAndBodySentSeparately() throws {
+        let body = sessionJSON(id: "BBBBBBBB-0000-0000-0000-000000000009")
+        let head = "POST /api/v1/sessions HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\n" +
+                   "Content-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n"
+        let conn = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!, using: .tcp)
+        let replied = expectation(description: "reply")
+        var reply = ""
+        conn.stateUpdateHandler = { state in
+            guard case .ready = state else { return }
+            conn.send(content: Data(head.utf8), completion: .contentProcessed { _ in
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.3) {      // body arrives later
+                    conn.send(content: Data(body.utf8), completion: .contentProcessed { _ in })
+                }
+            })
+            conn.receive(minimumIncompleteLength: 1, maximumLength: 4096) { data, _, _, _ in
+                reply = String(data: data ?? Data(), encoding: .utf8) ?? ""
+                replied.fulfill()
+            }
+        }
+        conn.start(queue: .global())
+        wait(for: [replied], timeout: 6)
+        conn.cancel()
+        XCTAssertTrue(reply.hasPrefix("HTTP/1.1 201"), "got: \(reply.prefix(40))")
+        XCTAssertTrue(TestSupport.wait { self.server.receivedSessions.count == 1 })
+    }
 
     func testHealth() throws {
         let r = try call("GET", "/health")
