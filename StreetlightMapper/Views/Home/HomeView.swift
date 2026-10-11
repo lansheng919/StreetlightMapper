@@ -19,7 +19,7 @@ struct HomeView: View {
     }
 
     private var unsyncedCount: Int {
-        store.sessions.filter { $0.syncStatus != .synced }.count
+        store.sessions.filter { $0.needsSync }.count
     }
 
     var body: some View {
@@ -29,6 +29,7 @@ struct HomeView: View {
                     statusRow
                     if workflow.hasDraft && !workflow.isEditingExisting { resumeCard }
                     startButton
+                    if unsyncedCount > 0 || !sync.lastSyncMessage.isEmpty { syncCard }
                     howItWorks
                     if !recent.isEmpty { recentSection }
                 }
@@ -56,19 +57,42 @@ struct HomeView: View {
                 text: connectivity.isConnected ? "Online" : "Offline – saving locally",
                 color: connectivity.isConnected ? .green : .orange
             )
-            if unsyncedCount > 0 {
-                Button { sync.syncAll() } label: {
-                    StatusChip(
-                        icon: sync.isSyncing ? "arrow.triangle.2.circlepath" : "arrow.up.circle",
-                        text: sync.isSyncing ? "Syncing…" : "\(unsyncedCount) waiting to sync",
-                        color: .blue
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(sync.isSyncing)
-            }
             Spacer(minLength: 0)
         }
+    }
+
+    // MARK: Sync (separate action, done whenever the technician chooses)
+
+    private var syncCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if unsyncedCount > 0 {
+                Label("\(unsyncedCount) capture\(unsyncedCount == 1 ? "" : "s") saved on this phone, not yet synced",
+                      systemImage: "arrow.up.circle")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.blue)
+                Button { sync.syncAll() } label: {
+                    Text(sync.isSyncing ? "Syncing…" : "Sync All Now")
+                }
+                .buttonStyle(ActionButtonStyle(color: .blue))
+                .disabled(sync.isSyncing || !connectivity.isConnected)
+                .accessibilityIdentifier("home.syncAll")
+                if !connectivity.isConnected {
+                    Text("You are offline. Sync later when you have a connection.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            if !sync.lastSyncMessage.isEmpty {
+                Text(sync.lastSyncMessage)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                    .accessibilityIdentifier("home.syncMessage")
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground))
+        .cornerRadius(14)
     }
 
     // MARK: Resume
@@ -134,7 +158,7 @@ struct HomeView: View {
             StepRow(icon: "qrcode.viewfinder", title: "2. Scan each street light",
                     detail: "Scan the QR code on every light on that pole. Add as many as you need.")
             StepRow(icon: "checkmark.seal", title: "3. Check and save",
-                    detail: "Review what was captured, fix anything that needed a manual check, then save. It uploads when you are online.")
+                    detail: "Review what was captured, fix anything that needed a manual check, then save. Syncing is a separate step you can do now or later.")
 
             Label("Yellow means check the value. You can correct it by hand before the photo is saved.",
                   systemImage: "info.circle")

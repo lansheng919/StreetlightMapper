@@ -55,6 +55,8 @@ struct CaptureSession: Identifiable, Codable, Equatable {
     var syncStatus: SyncStatus
     var createdAt: Date
     var updatedAt: Date
+    /// Set the first time the server accepts this session. Older saved data has no value.
+    var lastSyncedAt: Date?
 
     init(poleID: String,
          poleConfidence: Confidence,
@@ -76,8 +78,19 @@ struct CaptureSession: Identifiable, Codable, Equatable {
 
     mutating func markSynced() {
         syncStatus = .synced
+        lastSyncedAt = Date()
         updatedAt = Date()
     }
+
+    /// True while the server has no copy of this capture, so deleting it on the phone loses nothing
+    /// that exists elsewhere. A capture that was uploaded and then edited is NOT deletable: the
+    /// server still holds the earlier version.
+    var canDelete: Bool {
+        lastSyncedAt == nil && (syncStatus == .pending || syncStatus == .failed)
+    }
+
+    /// True when there is something to upload.
+    var needsSync: Bool { syncStatus == .pending || syncStatus == .failed }
 }
 
 // MARK: - Sync Status

@@ -6,6 +6,7 @@ final class WorkflowViewModelTests: XCTestCase {
     private var dir: URL!
     private var store: SessionStore!
     private var connectivity: ConnectivityMonitor!
+    private var sync: SyncService!
     private var workflow: WorkflowViewModel!
 
     override func setUp() {
@@ -14,13 +15,18 @@ final class WorkflowViewModelTests: XCTestCase {
         dir = TestSupport.tempDir()
         store = SessionStore(directory: dir)
         connectivity = ConnectivityMonitor(simulatedConnected: false)   // offline: save never uploads here
-        let sync = SyncService(store: store, connectivity: connectivity,
-                               baseURL: URL(string: "http://stub.invalid/api/v1")!,
-                               urlSession: StubURLProtocol.session())
+        sync = SyncService(store: store, connectivity: connectivity,
+                           baseURL: URL(string: "http://stub.invalid/api/v1")!,
+                           urlSession: StubURLProtocol.session(),
+                           defaults: TestSupport.isolatedDefaults())
         workflow = WorkflowViewModel(store: store, sync: sync)
     }
 
     override func tearDown() {
+        workflow = nil
+        sync = nil
+        connectivity = nil
+        store = nil
         try? FileManager.default.removeItem(at: dir)
         super.tearDown()
     }
@@ -182,7 +188,7 @@ final class WorkflowViewModelTests: XCTestCase {
         captureFullSession()
         workflow.saveSession()
         var saved = store.sessions[0]
-        saved.syncStatus = .synced
+        saved.markSynced()
         store.updateSession(saved)
         workflow.exit(); workflow.cleanupAfterDismiss()
 
@@ -206,5 +212,80 @@ final class WorkflowViewModelTests: XCTestCase {
         workflow.exit(); workflow.cleanupAfterDismiss()
         XCTAssertFalse(workflow.hasDraft)
         XCTAssertEqual(store.sessions[0].poleID, "208125", "unsaved edit is not stored")
+    }
+
+    // MARK: sync is separate from save
+
+    func testSaveDoesNotUpload() {
+        connectivity.simulate(connected: true)
+        captureFullSession()
+        workflow.saveSession()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+        XCTAssertEqual(store.sessions[0].syncStatus, .pending)
+    }
+
+    func testSyncCurrentUploadsTheSavedCapture() {
+        connectivity.simulate(connected: true)
+        captureFullSession()
+        workflow.saveSession()
+        workflow.syncCurrent()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced })
+        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+    }
+
+    // MARK: delete (only captures the server has never received)
+
+    func testDeleteSavedUnsyncedCaptureRemovesItAndItsPhotos() throws {
+        captureFullSession()
+        workflow.saveSession()
+        let s = store.sessions[0]
+        let photos = [s.polePotoPath].compactMap { $0 } + s.streetLights.compactMap(\.photoPath)
+        XCTAssertFalse(photos.isEmpty)
+        for p in photos { XCTAssertTrue(FileManager.default.fileExists(atPath: store.photoURL(relativePath: p)!.path)) }
+
+        XCTAssertTrue(workflow.canDeleteCurrent)
+        XCTAssertTrue(workflow.deleteCurrent())
+
+        XCTAssertTrue(store.sessions.isEmpty)
+        XCTAssertFalse(workflow.hasDraft)
+        XCTAssertFalse(workflow.isActive)
+        for p in photos { XCTAssertFalse(FileManager.default.fileExists(atPath: store.photoURL(relativePath: p)!.path)) }
+        XCTAssertTrue(SessionStore(directory: dir).sessions.isEmpty, "deletion is persisted")
+    }
+
+    func testFailedUploadCaptureCanStillBeDeleted() {
+        captureFullSession()
+        workflow.saveSession()
+        var s = store.sessions[0]; s.syncStatus = .failed; store.updateSession(s)
+        XCTAssertTrue(workflow.canDeleteCurrent)
+    }
+
+    func testSyncedCaptureCannotBeDeleted() {
+        captureFullSession()
+        workflow.saveSession()
+        var s = store.sessions[0]; s.markSynced(); store.updateSession(s)
+        XCTAssertFalse(workflow.canDeleteCurrent)
+        XCTAssertFalse(workflow.deleteCurrent())
+        XCTAssertEqual(store.sessions.count, 1)
+    }
+
+    func testSyncedThenEditedCaptureCannotBeDeleted() {
+        captureFullSession()
+        workflow.saveSession()
+        var s = store.sessions[0]; s.markSynced(); store.updateSession(s)
+        workflow.exit(); workflow.cleanupAfterDismiss()
+        workflow.edit(store.sessions[0])
+        workflow.updatePoleID("5814901")
+        workflow.saveSession()                                   // back to pending, but the server has a copy
+        XCTAssertEqual(store.sessions[0].syncStatus, .pending)
+        XCTAssertFalse(workflow.canDeleteCurrent)
+    }
+
+    func testDeletingAnUnsavedDraftJustDiscardsIt() {
+        captureFullSession()
+        XCTAssertTrue(workflow.deleteCurrent())
+        XCTAssertFalse(workflow.hasDraft)
+        XCTAssertTrue(store.sessions.isEmpty)
     }
 }

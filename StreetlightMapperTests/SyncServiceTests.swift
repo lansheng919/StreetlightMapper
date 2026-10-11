@@ -28,9 +28,57 @@ final class SyncServiceTests: XCTestCase {
         super.tearDown()
     }
 
-    private func makeSync(connected: Bool) {
+    private func makeSync(connected: Bool, defaults: UserDefaults = TestSupport.isolatedDefaults()) {
         connectivity = ConnectivityMonitor(simulatedConnected: connected)
-        sync = SyncService(store: store, connectivity: connectivity, baseURL: base, urlSession: StubURLProtocol.session())
+        sync = SyncService(store: store, connectivity: connectivity, baseURL: base,
+                           urlSession: StubURLProtocol.session(), defaults: defaults)
+    }
+
+    // MARK: sync is a separate, manual action
+
+    func testAutoSyncIsOffByDefault() {
+        makeSync(connected: true)
+        XCTAssertFalse(sync.autoSyncEnabled)
+    }
+
+    func testAutoSyncSettingIsPersisted() {
+        let defaults = TestSupport.isolatedDefaults()
+        makeSync(connected: true, defaults: defaults)
+        sync.autoSyncEnabled = true
+        let again = SyncService(store: store, connectivity: connectivity, baseURL: base,
+                                urlSession: StubURLProtocol.session(), defaults: defaults)
+        XCTAssertTrue(again.autoSyncEnabled)
+    }
+
+    func testReconnectDoesNotUploadWhileAutoSyncIsOff() {
+        makeSync(connected: false)
+        store.addSession(TestSupport.makeSession())
+        connectivity.simulate(connected: true)
+        RunLoop.main.run(until: Date().addingTimeInterval(3))     // longer than the 2 s debounce
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty, "nothing is sent until the technician syncs")
+        XCTAssertEqual(store.sessions[0].syncStatus, .pending)
+    }
+
+    func testSyncSingleSessionLeavesOthersQueued() {
+        makeSync(connected: true)
+        let a = TestSupport.makeSession(pole: "111111")
+        let b = TestSupport.makeSession(pole: "222222")
+        store.addSession(a); store.addSession(b)
+        sync.sync(sessionID: b.id)
+        XCTAssertTrue(TestSupport.wait { self.store.session(id: b.id)?.syncStatus == .synced })
+        XCTAssertEqual(store.session(id: a.id)?.syncStatus, .pending)
+        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+    }
+
+    func testSyncedSessionRecordsTimeAndCannotBeDeleted() {
+        makeSync(connected: true)
+        let s = TestSupport.makeSession()
+        store.addSession(s)
+        XCTAssertTrue(store.session(id: s.id)!.canDelete)
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.session(id: s.id)?.syncStatus == .synced })
+        XCTAssertNotNil(store.session(id: s.id)?.lastSyncedAt)
+        XCTAssertFalse(store.session(id: s.id)!.canDelete)
     }
 
     // MARK: offline
@@ -44,8 +92,9 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertTrue(sync.lastSyncMessage.contains("Offline"))
     }
 
-    func testSyncsAutomaticallyWhenConnectivityReturns() {
+    func testSyncsAutomaticallyWhenConnectivityReturnsIfEnabled() {
         makeSync(connected: false)
+        sync.autoSyncEnabled = true
         store.addSession(TestSupport.makeSession(pole: "111111"))
         store.addSession(TestSupport.makeSession(pole: "222222"))
 

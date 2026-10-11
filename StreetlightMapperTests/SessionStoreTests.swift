@@ -84,6 +84,53 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(Set(store.pendingSessions().map(\.poleID)), ["pending", "failed"])
     }
 
+    func testCanDeleteOnlyWhenServerNeverReceivedIt() {
+        var s = TestSupport.makeSession()
+        XCTAssertTrue(s.canDelete)
+        s.syncStatus = .failed
+        XCTAssertTrue(s.canDelete)
+        s.syncStatus = .syncing
+        XCTAssertFalse(s.canDelete, "an upload is in flight")
+        s.markSynced()
+        XCTAssertFalse(s.canDelete)
+        s.syncStatus = .pending                     // edited after syncing; the server still has a copy
+        XCTAssertFalse(s.canDelete)
+    }
+
+    func testDeleteRemovesPhotoFiles() throws {
+        let store = SessionStore(directory: dir)
+        var s = TestSupport.makeSession(lights: [])
+        let path = try XCTUnwrap(store.savePhoto(Data([1, 2, 3]), name: "sl_del.jpg"))
+        s.addStreetLight(StreetLightEntry(sessionID: s.id, serialNumber: "E1", confidence: .high, photoPath: path))
+        store.addSession(s)
+        let url = try XCTUnwrap(store.photoURL(relativePath: path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+        store.deleteSession(id: s.id)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    func testInterruptedUploadBecomesFailedOnLoad() {
+        let store = SessionStore(directory: dir)
+        var s = TestSupport.makeSession()
+        store.addSession(s)
+        s.syncStatus = .syncing
+        store.updateSession(s)
+        let reloaded = SessionStore(directory: dir)
+        XCTAssertEqual(reloaded.sessions[0].syncStatus, .failed)
+        XCTAssertTrue(reloaded.sessions[0].canDelete)
+    }
+
+    func testSessionSyncedByOlderVersionIsStillProtectedFromDelete() throws {
+        let store = SessionStore(directory: dir)
+        var s = TestSupport.makeSession()
+        s.syncStatus = .synced                      // no lastSyncedAt, like data saved before this feature
+        store.addSession(s)
+        var reloaded = try XCTUnwrap(SessionStore(directory: dir).sessions.first)
+        XCTAssertNotNil(reloaded.lastSyncedAt)
+        reloaded.syncStatus = .pending
+        XCTAssertFalse(reloaded.canDelete)
+    }
+
     func testPhotoRoundTrip() throws {
         let store = SessionStore(directory: dir)
         let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3])

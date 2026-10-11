@@ -20,6 +20,14 @@ enum TestSupport {
         return s
     }
 
+    /// A throwaway UserDefaults so tests never touch the app's real settings.
+    static func isolatedDefaults() -> UserDefaults {
+        let name = "slm-tests-\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return d
+    }
+
     /// Runs the main run loop until `condition` is true or the timeout expires.
     static func wait(timeout: TimeInterval = 5, until condition: () -> Bool) -> Bool {
         let end = Date().addingTimeInterval(timeout)

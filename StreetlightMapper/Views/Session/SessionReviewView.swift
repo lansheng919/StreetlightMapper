@@ -23,6 +23,9 @@ struct SessionReviewView: View {
 
     @State private var editTarget: EditTarget?
     @State private var confirmClose = false
+    @State private var confirmDelete = false
+    @EnvironmentObject private var sync: SyncService
+    @EnvironmentObject private var connectivity: ConnectivityMonitor
 
     private var hasUnsavedEdits: Bool {
         guard workflow.isEditingExisting, let current = workflow.session,
@@ -55,6 +58,13 @@ struct SessionReviewView: View {
                 Button("Discard changes", role: .destructive) { workflow.exit() }
                 Button("Keep editing", role: .cancel) {}
             }
+            .alert("Delete this capture?",
+                    isPresented: $confirmDelete) {
+                Button("Yes, Delete", role: .destructive) { workflow.deleteCurrent() }
+                Button("Keep it", role: .cancel) {}
+            } message: {
+                Text("The Pole ID, street lights and photos will be removed from this phone. This cannot be undone.")
+            }
         }
     }
 
@@ -66,8 +76,17 @@ struct SessionReviewView: View {
 
     private var savedBanner: some View {
         Section {
-            Label("Saved. It will upload as soon as you are online.", systemImage: "checkmark.seal.fill")
-                .foregroundColor(.green)
+            if workflow.storedSession?.syncStatus == .synced {
+                Label("Saved and synced to the server.", systemImage: "checkmark.icloud.fill")
+                    .foregroundColor(.green)
+            } else {
+                Label("Saved on this phone. Sync it now or later from Home.", systemImage: "checkmark.seal.fill")
+                    .foregroundColor(.green)
+            }
+            if !sync.lastSyncMessage.isEmpty {
+                Text(sync.lastSyncMessage).font(.footnote).foregroundColor(.secondary)
+                    .accessibilityIdentifier("review.syncMessage")
+            }
         }
     }
 
@@ -157,6 +176,17 @@ struct SessionReviewView: View {
     private var actionsSection: some View {
         Section {
             if workflow.isSaved {
+                if workflow.storedSession?.needsSync == true {
+                    Button { workflow.syncCurrent() } label: {
+                        Label(sync.isSyncing ? "Syncing…" : "Sync Now", systemImage: "arrow.up.circle")
+                    }
+                    .disabled(sync.isSyncing || !connectivity.isConnected)
+                    .accessibilityIdentifier("review.syncNow")
+                    if !connectivity.isConnected {
+                        Text("You are offline. Sync later from Home.")
+                            .font(.footnote).foregroundColor(.secondary)
+                    }
+                }
                 Button { workflow.startNew() } label: {
                     Label("Capture Another Pole", systemImage: "camera.viewfinder")
                 }
@@ -171,6 +201,21 @@ struct SessionReviewView: View {
                         .bold()
                 }
                 .disabled(workflow.session?.streetLights.isEmpty != false)
+            }
+
+            if workflow.canDeleteCurrent {
+                Button(role: .destructive) { confirmDelete = true } label: {
+                    Label("Delete Capture", systemImage: "trash")
+                }
+                .accessibilityIdentifier("review.delete")
+            } else if workflow.storedSession?.lastSyncedAt != nil {
+                Text("Already sent to the server, so it can't be deleted here.")
+                    .font(.footnote).foregroundColor(.secondary)
+            } else if !workflow.isEditingExisting && !workflow.isSaved {
+                Button(role: .destructive) { confirmDelete = true } label: {
+                    Label("Discard Capture", systemImage: "trash")
+                }
+                .accessibilityIdentifier("review.discard")
             }
         }
     }

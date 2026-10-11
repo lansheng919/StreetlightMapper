@@ -24,6 +24,14 @@ final class WorkflowViewModel: ObservableObject {
     /// An unfinished capture the technician can resume or discard.
     var hasDraft: Bool { session != nil && !isSaved }
 
+    /// The stored copy of the session being reviewed (nil for a brand-new capture not yet saved).
+    var storedSession: CaptureSession? {
+        session.flatMap { store.session(id: $0.id) }
+    }
+
+    /// A saved capture that has never reached the server can be deleted from the phone.
+    var canDeleteCurrent: Bool { storedSession?.canDelete ?? false }
+
     // MARK: Dependencies
 
     private let store: SessionStore
@@ -146,9 +154,10 @@ final class WorkflowViewModel: ObservableObject {
         session = s
     }
 
-    // MARK: Save & submit
+    // MARK: Save
 
-    /// Saves to the local database (new or edited) and queues it for upload.
+    /// Saves to the local database (new or edited). It is NOT uploaded here: the technician
+    /// syncs later, from Home / History, or straight away with `syncCurrent()`.
     func saveSession() {
         guard var s = session, !s.streetLights.isEmpty else { return }
         s.syncStatus = .pending
@@ -160,6 +169,30 @@ final class WorkflowViewModel: ObservableObject {
         }
         session = s
         isSaved = true
-        sync.syncAll()
+    }
+
+    /// Uploads the capture that was just saved.
+    func syncCurrent() {
+        guard let s = session else { return }
+        sync.sync(sessionID: s.id)
+    }
+
+    // MARK: Delete
+
+    /// Deletes the capture under review from the phone, including its photos.
+    /// Refused once the server has received it, because the server would keep an orphan copy.
+    @discardableResult
+    func deleteCurrent() -> Bool {
+        guard let stored = storedSession else {
+            // never saved: this is just discarding the draft
+            discardDraft()
+            isActive = false
+            return true
+        }
+        guard stored.canDelete else { return false }
+        store.deleteSession(id: stored.id)
+        discardDraft()
+        isActive = false
+        return true
     }
 }

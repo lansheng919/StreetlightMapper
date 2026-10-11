@@ -21,20 +21,29 @@ struct StreetlightMapperApp: App {
         // so they never touch real data and behave the same every time.
         let store: SessionStore
         let connectivity: ConnectivityMonitor
+        var defaults = UserDefaults.standard
         if uiTesting {
             let dir = FileManager.default.temporaryDirectory
                 .appendingPathComponent("uitest-\(UUID().uuidString)", isDirectory: true)
             store = SessionStore(directory: dir)
             connectivity = ConnectivityMonitor(simulatedConnected: !args.contains("-UITestingOffline"))
+            let suite = "uitest-\(UUID().uuidString)"
+            defaults = UserDefaults(suiteName: suite) ?? .standard
+            defaults.removePersistentDomain(forName: suite)
             if args.contains("-UITestingSeed") {
                 store.addSession(Self.seedSession())
+            }
+            if args.contains("-UITestingSeedSynced") {
+                var s = Self.seedSession()
+                s.markSynced()
+                store.addSession(s)
             }
         } else {
             store = SessionStore()
             connectivity = ConnectivityMonitor()
         }
 
-        let sync     = SyncService(store: store, connectivity: connectivity)
+        let sync     = SyncService(store: store, connectivity: connectivity, defaults: defaults)
         let workflow = WorkflowViewModel(store: store, sync: sync)
 
         _store        = StateObject(wrappedValue: store)

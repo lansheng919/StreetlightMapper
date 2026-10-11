@@ -12,10 +12,11 @@ final class StreetlightMapperUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(seeded: Bool = false, offline: Bool = false) {
+    private func launch(seeded: Bool = false, offline: Bool = false, syncedSeed: Bool = false) {
         app = XCUIApplication()
         var args = ["-UITesting"]
         if seeded { args.append("-UITestingSeed") }
+        if syncedSeed { args.append("-UITestingSeedSynced") }
         if offline { args.append("-UITestingOffline") }
         app.launchArguments = args
         app.launch()
@@ -132,8 +133,97 @@ final class StreetlightMapperUITests: XCTestCase {
         launch(seeded: true, offline: true)
         tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
         tap(app.buttons["Save Changes"])
-        XCTAssertTrue(app.staticTexts["Saved. It will upload as soon as you are online."].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Saved on this phone. Sync it now or later from Home."].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Capture Another Pole"].exists)
+        XCTAssertFalse(app.buttons["review.syncNow"].isEnabled, "Sync Now is disabled while offline")
+    }
+
+    // MARK: sync is a separate action
+
+    func testHomeShowsUnsyncedCaptureWithSyncAllButton() {
+        launch(seeded: true)
+        XCTAssertTrue(app.staticTexts["1 capture saved on this phone, not yet synced"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["home.syncAll"].isEnabled)
+    }
+
+    func testHomeSyncAllMarksCaptureSynced() {
+        launch(seeded: true)
+        tap(app.buttons["home.syncAll"])
+        XCTAssertTrue(app.staticTexts["1 synced"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["1 capture saved on this phone, not yet synced"].exists)
+    }
+
+    func testHomeSyncDisabledWhenOffline() {
+        launch(seeded: true, offline: true)
+        XCTAssertTrue(app.buttons["home.syncAll"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["home.syncAll"].isEnabled)
+        XCTAssertTrue(app.staticTexts["You are offline. Sync later when you have a connection."].exists)
+    }
+
+    func testSyncNowFromReviewAfterSave() {
+        launch(seeded: true)
+        tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
+        tap(app.buttons["Save Changes"])
+        XCTAssertTrue(app.staticTexts["Saved on this phone. Sync it now or later from Home."].waitForExistence(timeout: 5))
+        tap(app.buttons["review.syncNow"])
+        XCTAssertTrue(app.staticTexts["Saved and synced to the server."].waitForExistence(timeout: 10))
+    }
+
+    func testAutoSyncToggleIsOffByDefault() {
+        launch()
+        tap(app.tabBars.buttons["Integration"])
+        let toggle = app.switches["debug.autoSync"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "0")
+    }
+
+    // MARK: delete
+
+    func testDeleteUnsyncedCaptureFromReview() {
+        launch(seeded: true)
+        tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
+        tap(app.buttons["review.delete"])
+        XCTAssertTrue(app.buttons["Yes, Delete"].waitForExistence(timeout: 5))
+        tap(app.buttons["Yes, Delete"])
+        XCTAssertTrue(app.buttons["Start New Capture"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Recent captures"].exists, "capture is gone")
+    }
+
+    func testCancellingDeleteKeepsCapture() {
+        launch(seeded: true)
+        tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
+        tap(app.buttons["review.delete"])
+        XCTAssertTrue(app.buttons["Yes, Delete"].waitForExistence(timeout: 5))
+        tap(app.buttons["Keep it"])
+        XCTAssertTrue(app.navigationBars["Edit Capture"].exists)
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.staticTexts["Recent captures"].waitForExistence(timeout: 5))
+    }
+
+    func testSyncedCaptureHasNoDeleteButton() {
+        launch(syncedSeed: true)
+        tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
+        XCTAssertTrue(app.navigationBars["Edit Capture"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["review.delete"].exists)
+        XCTAssertTrue(app.staticTexts["Already sent to the server, so it can't be deleted here."].exists)
+    }
+
+    func testDeleteFromHistoryDetail() {
+        launch(seeded: true)
+        tap(app.tabBars.buttons["History"])
+        tap(app.staticTexts["208125"])
+        tap(app.buttons["detail.delete"])
+        tap(app.buttons["Yes, Delete"])
+        XCTAssertTrue(app.staticTexts["No sessions yet"].waitForExistence(timeout: 5))
+    }
+
+    func testHistoryDetailOfSyncedCaptureCannotDelete() {
+        launch(syncedSeed: true)
+        tap(app.tabBars.buttons["History"])
+        tap(app.staticTexts["208125"])
+        XCTAssertTrue(app.staticTexts["E5000531"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["detail.delete"].exists)
+        XCTAssertFalse(app.buttons["detail.sync"].exists)
     }
 
     func testDeletingAllLightsDisablesSave() {

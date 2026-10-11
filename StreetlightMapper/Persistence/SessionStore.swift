@@ -46,14 +46,28 @@ final class SessionStore: ObservableObject {
         save()
     }
 
+    /// Removes a session and the photos stored for it.
     func deleteSession(id: UUID) {
+        if let s = sessions.first(where: { $0.id == id }) { deletePhotos(of: s) }
         sessions.removeAll { $0.id == id }
         save()
     }
 
+    /// Deletes the pole and street-light photo files of a session from disk.
+    func deletePhotos(of session: CaptureSession) {
+        let paths = [session.polePotoPath].compactMap { $0 } + session.streetLights.compactMap { $0.photoPath }
+        for path in paths {
+            try? FileManager.default.removeItem(at: baseDir.appendingPathComponent(path))
+        }
+    }
+
+    func session(id: UUID) -> CaptureSession? {
+        sessions.first { $0.id == id }
+    }
+
     /// Returns sessions that have not been successfully synced yet.
     func pendingSessions() -> [CaptureSession] {
-        sessions.filter { $0.syncStatus == .pending || $0.syncStatus == .failed }
+        sessions.filter { $0.needsSync }
     }
 
     // MARK: Persistence
@@ -61,8 +75,17 @@ final class SessionStore: ObservableObject {
     private func load() {
         guard FileManager.default.fileExists(atPath: fileURL.path),
               let data = try? Data(contentsOf: fileURL),
-              let decoded = try? decoder.decode([CaptureSession].self, from: data)
+              var decoded = try? decoder.decode([CaptureSession].self, from: data)
         else { return }
+        // An upload interrupted by the app closing leaves "syncing" behind; treat it as failed
+        // so it can be retried or deleted.
+        for i in decoded.indices where decoded[i].syncStatus == .syncing {
+            decoded[i].syncStatus = .failed
+        }
+        // Captures synced by an older version have no timestamp; they still reached the server.
+        for i in decoded.indices where decoded[i].syncStatus == .synced && decoded[i].lastSyncedAt == nil {
+            decoded[i].lastSyncedAt = decoded[i].updatedAt
+        }
         sessions = decoded
     }
 

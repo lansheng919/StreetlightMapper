@@ -110,14 +110,15 @@ final class MockSAPServerTests: XCTestCase {
         XCTAssertTrue(TestSupport.wait { self.server.receivedSessions.count == 2 })
     }
 
-    /// End to end: save a capture -> SyncService uploads it -> the mock SAP server has it.
+    /// End to end: save a capture -> technician syncs -> the mock SAP server has it.
     func testEndToEndAppToMockServer() throws {
         let dir = TestSupport.tempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = SessionStore(directory: dir)
         let sync = SyncService(store: store,
                                connectivity: ConnectivityMonitor(simulatedConnected: true),
-                               baseURL: URL(string: base)!)
+                               baseURL: URL(string: base)!,
+                               defaults: TestSupport.isolatedDefaults())
         let workflow = WorkflowViewModel(store: store, sync: sync)
 
         workflow.startNew()
@@ -126,6 +127,8 @@ final class MockSAPServerTests: XCTestCase {
         workflow.addAnotherStreetLight()
         workflow.streetLightCaptured(serial: "E5000532", confidence: .manual, photoData: nil)
         workflow.saveSession()
+        XCTAssertTrue(server.receivedSessions.isEmpty, "saving alone does not upload")
+        workflow.syncCurrent()
 
         XCTAssertTrue(TestSupport.wait(timeout: 8) { self.server.receivedSessions.count == 1 },
                       "server should have received the capture")

@@ -11,6 +11,13 @@ final class SyncService: ObservableObject {
 
     @Published private(set) var isSyncing = false
     @Published private(set) var lastSyncMessage = ""
+    /// When on, queued captures upload by themselves once the network returns.
+    /// Off by default: the technician decides when to sync.
+    @Published var autoSyncEnabled: Bool {
+        didSet { defaults.set(autoSyncEnabled, forKey: Self.autoSyncKey) }
+    }
+
+    static let autoSyncKey = "autoSyncEnabled"
 
     // MARK: Dependencies
 
@@ -18,6 +25,7 @@ final class SyncService: ObservableObject {
     private let connectivity: ConnectivityMonitor
     private let urlSession: URLSession
     private let baseURLOverride: URL?
+    private let defaults: UserDefaults
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Configuration
@@ -40,32 +48,48 @@ final class SyncService: ObservableObject {
     init(store: SessionStore,
          connectivity: ConnectivityMonitor,
          baseURL: URL? = nil,
-         urlSession: URLSession = .shared) {
+         urlSession: URLSession = .shared,
+         defaults: UserDefaults = .standard) {
         self.store = store
         self.connectivity = connectivity
         self.baseURLOverride = baseURL
         self.urlSession = urlSession
+        self.defaults = defaults
+        self.autoSyncEnabled = defaults.bool(forKey: Self.autoSyncKey)
 
-        // Auto-sync when connectivity is restored
+        // Optional auto-sync when connectivity is restored (off unless the technician turns it on)
         connectivity.$isConnected
             .filter { $0 }
             .debounce(for: .seconds(2), scheduler: RunLoop.main)
-            .sink { [weak self] _ in self?.syncAll() }
+            .sink { [weak self] _ in
+                guard let self, self.autoSyncEnabled else { return }
+                self.syncAll()
+            }
             .store(in: &cancellables)
     }
 
     // MARK: Public
 
+    /// Uploads every capture that has not been synced yet.
     func syncAll() {
-        let pending = store.pendingSessions()
-        guard !pending.isEmpty else { return }
+        sync(store.pendingSessions())
+    }
+
+    /// Uploads one capture (no-op if it is already synced).
+    func sync(sessionID: UUID) {
+        guard let s = store.session(id: sessionID), s.needsSync else { return }
+        sync([s])
+    }
+
+    private func sync(_ pending: [CaptureSession]) {
+        guard !pending.isEmpty, !isSyncing else { return }
         guard connectivity.isConnected else {
-            lastSyncMessage = "Offline — \(pending.count) session(s) queued"
+            lastSyncMessage = "Offline. \(pending.count) capture(s) waiting. Sync when you have a connection."
             return
         }
 
         isSyncing = true
-        lastSyncMessage = "Syncing \(pending.count) session(s)…"
+        lastSyncMessage = "Syncing \(pending.count) capture(s)…"
 
         let group = DispatchGroup()
         var successCount = 0
@@ -83,7 +107,7 @@ final class SyncService: ObservableObject {
             self?.isSyncing = false
             var parts: [String] = []
             if successCount > 0 { parts.append("\(successCount) synced") }
-            if failCount > 0 { parts.append("\(failCount) failed") }
+            if failCount > 0 { parts.append("\(failCount) failed. Try again later.") }
             self?.lastSyncMessage = parts.joined(separator: ", ")
         }
     }

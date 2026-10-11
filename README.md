@@ -124,10 +124,14 @@ SAP_BASE_URL = https://your-sap-host/api/v1
 
 ### 6. Offline Support & Sync
 - `ConnectivityMonitor` (NWPathMonitor) tracks network state.
-- When the device goes offline, all new sessions are stored with `syncStatus = .pending`.
-- When connectivity is restored, `SyncService` automatically uploads all pending sessions.
-- Sync can also be triggered manually from the History tab toolbar.
+- **Saving never uploads.** A saved capture is stored on the phone as `syncStatus = .pending`; syncing is a separate action the technician does now or later.
+- Sync from **Home** (*Sync All Now*), the **History** toolbar (*Sync All*), a capture's detail page (*Sync This Capture*), or the review screen right after saving (*Sync Now*). Sync buttons are disabled while offline.
+- Optional **Auto-sync when online** toggle (Integration tab, off by default) uploads queued captures automatically when the network returns.
 - Failed uploads are marked `.failed` and retried on the next sync.
+
+### 7. Deleting captures
+- A capture that has **not reached the server** (pending or failed) can be deleted from the review screen, its History detail page, or by swiping in History. Its photos are deleted too, after a confirmation.
+- Once a capture has been synced it cannot be deleted from the phone (the server would keep an orphan copy). This also applies if it is edited after syncing.
 
 ---
 
@@ -136,7 +140,7 @@ SAP_BASE_URL = https://your-sap-host/api/v1
 1. Launch the app on an iPhone.
 2. Tap **Integration** tab — the mock server should show "Running ✓".
 3. Complete a capture session and save it.
-4. Tap **Force Sync Now** — the session is `POST`ed to the embedded server.
+4. Tap **Sync All Now** on Home (or **Sync Now** after saving) — the session is `POST`ed to the embedded server.
 5. The **Received by Mock Server** list updates with the session.
 6. From a Mac on the same Wi-Fi, verify with curl:
    ```bash

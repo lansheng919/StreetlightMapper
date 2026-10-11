@@ -146,8 +146,18 @@ struct DebugView: View {
                 Text("\(store.pendingSessions().count)")
             }
 
+            Toggle(isOn: $sync.autoSyncEnabled) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-sync when online")
+                    Text("Off: you sync manually from Home or History.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .accessibilityIdentifier("debug.autoSync")
+
             Button(action: { sync.syncAll() }) {
-                Label("Force Sync Now", systemImage: "arrow.triangle.2.circlepath")
+                Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(sync.isSyncing)
 

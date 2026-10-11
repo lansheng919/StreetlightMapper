@@ -19,10 +19,13 @@ struct SessionListView: View {
                             NavigationLink(destination: SessionDetailView(session: session)) {
                                 SessionRowView(session: session)
                             }
+                            .deleteDisabled(!session.canDelete)
                         }
                         .onDelete { offsets in
+                            // Only captures the server has never received can be deleted.
                             let sorted = store.sessions.sorted(by: { $0.createdAt > $1.createdAt })
-                            offsets.forEach { store.deleteSession(id: sorted[$0].id) }
+                            offsets.map { sorted[$0] }.filter { $0.canDelete }
+                                .forEach { store.deleteSession(id: $0.id) }
                         }
                     }
                     .listStyle(.insetGrouped)
@@ -64,10 +67,11 @@ struct SessionListView: View {
             if sync.isSyncing {
                 ProgressView()
             } else {
-                Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                Label("Sync All", systemImage: "arrow.triangle.2.circlepath")
             }
         }
-        .disabled(sync.isSyncing)
+        .disabled(sync.isSyncing || store.pendingSessions().isEmpty)
+        .accessibilityIdentifier("history.syncAll")
     }
 
     private var connectivityIndicator: some View {
@@ -140,6 +144,10 @@ struct SessionDetailView: View {
     let initialSession: CaptureSession
     @EnvironmentObject private var store: SessionStore
     @EnvironmentObject private var workflow: WorkflowViewModel
+    @EnvironmentObject private var sync: SyncService
+    @EnvironmentObject private var connectivity: ConnectivityMonitor
+    @Environment(\.presentationMode) private var presentation
+    @State private var confirmDelete = false
 
     init(session: CaptureSession) {
         self.initialSession = session
@@ -174,8 +182,34 @@ struct SessionDetailView: View {
                     .padding(.vertical, 2)
                 }
             }
+
+            Section(footer: Text(actionsFooter)) {
+                if session.needsSync {
+                    Button { sync.sync(sessionID: session.id) } label: {
+                        Label(sync.isSyncing ? "Syncing…" : "Sync This Capture", systemImage: "arrow.up.circle")
+                    }
+                    .disabled(sync.isSyncing || !connectivity.isConnected)
+                    .accessibilityIdentifier("detail.sync")
+                }
+                if session.canDelete {
+                    Button(role: .destructive) { confirmDelete = true } label: {
+                        Label("Delete Capture", systemImage: "trash")
+                    }
+                    .accessibilityIdentifier("detail.delete")
+                }
+            }
         }
         .listStyle(.insetGrouped)
+        .alert("Delete this capture?",
+            isPresented: $confirmDelete) {
+            Button("Yes, Delete", role: .destructive) {
+                store.deleteSession(id: session.id)
+                presentation.wrappedValue.dismiss()
+            }
+            Button("Keep it", role: .cancel) {}
+        } message: {
+            Text("The Pole ID, street lights and photos will be removed from this phone. This cannot be undone.")
+        }
         .navigationTitle(session.poleID)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -183,6 +217,11 @@ struct SessionDetailView: View {
                 Button("Edit") { workflow.edit(session) }
             }
         }
+    }
+
+    private var actionsFooter: String {
+        if session.lastSyncedAt != nil { return "Already sent to the server, so it can't be deleted here." }
+        return session.needsSync ? "Saved on this phone only. Sync it when you are ready, or delete it." : ""
     }
 }
 
