@@ -44,12 +44,17 @@ final class CaptureViewModel: ObservableObject {
 
     // MARK: Init
 
-    init(mode: CameraManager.ScanMode) {
-        camera = CameraManager()
-        camera.configure(mode: mode)
+    /// - Parameter camera: tests pass an unconfigured `CameraManager` so no real camera starts.
+    init(mode: CameraManager.ScanMode, camera: CameraManager? = nil) {
+        if let camera {
+            self.camera = camera
+        } else {
+            self.camera = CameraManager()
+            self.camera.configure(mode: mode)
+        }
 
         // Observe real-time scan results
-        camera.$latestResult
+        self.camera.$latestResult
             .compactMap { $0 }
             .receive(on: RunLoop.main)
             .sink { [weak self] result in
@@ -58,7 +63,7 @@ final class CaptureViewModel: ObservableObject {
             .store(in: &cancellables)
 
         // Receive captured photo
-        camera.onPhotoCaptured = { [weak self] data in
+        self.camera.onPhotoCaptured = { [weak self] data in
             DispatchQueue.main.async {
                 self?.capturedPhotoData = data
                 self?.isCapturing = false
@@ -96,7 +101,10 @@ final class CaptureViewModel: ObservableObject {
         if isHighConfidence && !didAutoCapture && capturedPhotoData == nil && !showManualEntry {
             didAutoCapture = true
             isCapturing = true
-            camera.capturePhoto()
+            if !camera.capturePhoto() {          // no camera available: allow another attempt
+                isCapturing = false
+                didAutoCapture = false
+            }
         }
     }
 
@@ -130,7 +138,7 @@ final class CaptureViewModel: ObservableObject {
         // Capture photo manually after confirmation
         if capturedPhotoData == nil {
             isCapturing = true
-            camera.capturePhoto()
+            if !camera.capturePhoto() { isCapturing = false }
         }
     }
 

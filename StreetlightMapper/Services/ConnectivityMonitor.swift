@@ -19,6 +19,16 @@ final class ConnectivityMonitor: ObservableObject {
         monitor.start(queue: queue)
     }
 
+    /// Fixed-state monitor with no real network observation, for tests and UI tests.
+    init(simulatedConnected: Bool) {
+        isConnected = simulatedConnected
+    }
+
+    /// Flips the simulated state (only meaningful for a monitor made with `init(simulatedConnected:)`).
+    func simulate(connected: Bool) {
+        isConnected = connected
+    }
+
     deinit {
         monitor.cancel()
     }

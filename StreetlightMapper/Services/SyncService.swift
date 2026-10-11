@@ -16,6 +16,8 @@ final class SyncService: ObservableObject {
 
     private let store: SessionStore
     private let connectivity: ConnectivityMonitor
+    private let urlSession: URLSession
+    private let baseURLOverride: URL?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Configuration
@@ -23,6 +25,7 @@ final class SyncService: ObservableObject {
     // While no live SAP is available the MockSAPServer (running locally) is used.
 
     private var sapBaseURL: URL {
+        if let baseURLOverride { return baseURLOverride }
         // First try environment override (useful for CI / testing)
         if let override = ProcessInfo.processInfo.environment["SAP_BASE_URL"],
            let url = URL(string: override) {
@@ -34,9 +37,14 @@ final class SyncService: ObservableObject {
 
     // MARK: Init
 
-    init(store: SessionStore, connectivity: ConnectivityMonitor) {
+    init(store: SessionStore,
+         connectivity: ConnectivityMonitor,
+         baseURL: URL? = nil,
+         urlSession: URLSession = .shared) {
         self.store = store
         self.connectivity = connectivity
+        self.baseURLOverride = baseURL
+        self.urlSession = urlSession
 
         // Auto-sync when connectivity is restored
         connectivity.$isConnected
@@ -101,7 +109,7 @@ final class SyncService: ObservableObject {
             return
         }
 
-        URLSession.shared.dataTask(with: request) { [weak self] _, response, error in
+        urlSession.dataTask(with: request) { [weak self] _, response, error in
             DispatchQueue.main.async {
                 if let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) {
                     var synced = session

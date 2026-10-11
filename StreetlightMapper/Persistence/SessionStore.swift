@@ -14,15 +14,20 @@ final class SessionStore: ObservableObject {
 
     // MARK: Private
 
+    private let baseDir: URL
     private let fileURL: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
     // MARK: Init
 
-    init() {
+    /// - Parameter directory: storage folder; defaults to the app's Documents directory.
+    ///   Tests pass a temporary folder.
+    init(directory: URL? = nil) {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.fileURL = docs.appendingPathComponent("sessions.json")
+        self.baseDir = directory ?? docs
+        try? FileManager.default.createDirectory(at: baseDir, withIntermediateDirectories: true)
+        self.fileURL = baseDir.appendingPathComponent("sessions.json")
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
         load()
@@ -70,8 +75,7 @@ final class SessionStore: ObservableObject {
 
     /// Saves a JPEG image to the Documents/photos directory and returns the relative path.
     func savePhoto(_ data: Data, name: String) -> String? {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let photosDir = docs.appendingPathComponent("photos", isDirectory: true)
+        let photosDir = baseDir.appendingPathComponent("photos", isDirectory: true)
         try? FileManager.default.createDirectory(at: photosDir, withIntermediateDirectories: true)
         let url = photosDir.appendingPathComponent(name)
         do {
@@ -84,8 +88,7 @@ final class SessionStore: ObservableObject {
 
     /// Resolves a relative photo path to a full URL.
     func photoURL(relativePath: String) -> URL? {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return docs.appendingPathComponent(relativePath)
+        baseDir.appendingPathComponent(relativePath)
     }
 
     // MARK: DTO conversion

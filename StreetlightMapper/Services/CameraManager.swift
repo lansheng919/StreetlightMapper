@@ -109,10 +109,16 @@ final class CameraManager: NSObject, ObservableObject {
 
     // MARK: Photo Capture
 
-    func capturePhoto() {
+    /// Returns false when no photo could be started (no camera, session not running).
+    @discardableResult
+    func capturePhoto() -> Bool {
+        // AVCapturePhotoOutput throws an Objective-C exception if there is no active video
+        // connection (no camera, session stopped, simulator). Skip instead of crashing.
+        guard photoOutput.connection(with: .video) != nil else { return false }
         let settings = AVCapturePhotoSettings()
         settings.flashMode = .auto
         photoOutput.capturePhoto(with: settings, delegate: self)
+        return true
     }
 
     // MARK: Stop

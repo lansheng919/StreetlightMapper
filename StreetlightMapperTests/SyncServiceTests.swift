@@ -1,0 +1,126 @@
+import XCTest
+@testable import StreetlightMapper
+
+// Requirement 5: capture offline, sync when connectivity returns.
+
+final class SyncServiceTests: XCTestCase {
+
+    private var dir: URL!
+    private var store: SessionStore!
+    private var connectivity: ConnectivityMonitor!
+    private var sync: SyncService!
+    private let base = URL(string: "http://stub.invalid/api/v1")!
+
+    override func setUp() {
+        super.setUp()
+        StubURLProtocol.reset()
+        dir = TestSupport.tempDir()
+        store = SessionStore(directory: dir)
+    }
+
+    override func tearDown() {
+        // XCTest keeps finished test objects alive. Release the service so its delayed
+        // auto-sync (2 s after creation while online) cannot fire during a later test.
+        sync = nil
+        connectivity = nil
+        store = nil
+        try? FileManager.default.removeItem(at: dir)
+        super.tearDown()
+    }
+
+    private func makeSync(connected: Bool) {
+        connectivity = ConnectivityMonitor(simulatedConnected: connected)
+        sync = SyncService(store: store, connectivity: connectivity, baseURL: base, urlSession: StubURLProtocol.session())
+    }
+
+    // MARK: offline
+
+    func testOfflineKeepsSessionsQueuedAndSendsNothing() {
+        makeSync(connected: false)
+        store.addSession(TestSupport.makeSession())
+        sync.syncAll()
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty, "no network calls while offline")
+        XCTAssertEqual(store.sessions[0].syncStatus, .pending)
+        XCTAssertTrue(sync.lastSyncMessage.contains("Offline"))
+    }
+
+    func testSyncsAutomaticallyWhenConnectivityReturns() {
+        makeSync(connected: false)
+        store.addSession(TestSupport.makeSession(pole: "111111"))
+        store.addSession(TestSupport.makeSession(pole: "222222"))
+
+        connectivity.simulate(connected: true)              // network comes back; service debounces 2s
+
+        XCTAssertTrue(TestSupport.wait(timeout: 8) { self.store.sessions.allSatisfy { $0.syncStatus == .synced } },
+                      "queued sessions upload by themselves")
+        XCTAssertEqual(StubURLProtocol.requests.count, 2)
+    }
+
+    // MARK: online
+
+    func testOnlineSyncMarksSynced() {
+        makeSync(connected: true)
+        store.addSession(TestSupport.makeSession())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced })
+        XCTAssertFalse(sync.isSyncing)
+    }
+
+    func testRequestShape() throws {
+        makeSync(connected: true)
+        let s = TestSupport.makeSession(pole: "5814901", lights: ["E1", "E2"])
+        store.addSession(s)
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { !StubURLProtocol.requests.isEmpty && !StubURLProtocol.bodies.isEmpty })
+
+        let req = StubURLProtocol.requests[0]
+        XCTAssertEqual(req.httpMethod, "POST")
+        XCTAssertEqual(req.url?.absoluteString, "http://stub.invalid/api/v1/sessions")
+        XCTAssertEqual(req.value(forHTTPHeaderField: "Content-Type"), "application/json")
+
+        let dto = try JSONDecoder().decode(SessionDTO.self, from: StubURLProtocol.bodies[0])
+        XCTAssertEqual(dto.poleId, "5814901")
+        XCTAssertEqual(dto.streetLights.map(\.serialNumber), ["E1", "E2"])
+    }
+
+    func testServerErrorMarksFailedAndItRetriesLater() {
+        makeSync(connected: true)
+        StubURLProtocol.statusCode = 500
+        store.addSession(TestSupport.makeSession())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .failed })
+
+        StubURLProtocol.statusCode = 201                    // server recovers
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced },
+                      "failed sessions are retried")
+    }
+
+    func testNetworkErrorMarksFailed() {
+        makeSync(connected: true)
+        StubURLProtocol.failWithError = true
+        store.addSession(TestSupport.makeSession())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .failed })
+    }
+
+    func testAlreadySyncedSessionsAreNotResent() {
+        makeSync(connected: true)
+        var s = TestSupport.makeSession()
+        s.syncStatus = .synced
+        store.addSession(s)
+        sync.syncAll()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty)
+    }
+
+    func testMixedBatchOnlySendsPending() {
+        makeSync(connected: true)
+        var done = TestSupport.makeSession(pole: "111111"); done.syncStatus = .synced
+        store.addSession(done)
+        store.addSession(TestSupport.makeSession(pole: "222222"))
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions.allSatisfy { $0.syncStatus == .synced } })
+        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+    }
+}
