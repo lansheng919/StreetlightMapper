@@ -28,15 +28,23 @@ struct PoleIDCaptureView: View {
 
             // Top header
             VStack {
-                HStack {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                    Text("Pole ID Capture")
-                        .font(.headline)
+                ZStack {
+                    HStack {
+                        Image(systemName: "number.square")
+                        Text("Step 1 of 2 · Pole ID")
+                            .font(.headline)
+                    }
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.black.opacity(0.55))
+                    .clipShape(Capsule())
+
+                    HStack {
+                        CloseCaptureButton { workflow.exit() }
+                        Spacer()
+                    }
+                    .padding(.leading, 16)
                 }
-                .foregroundColor(.white)
-                .padding(12)
-                .background(Color.black.opacity(0.55))
-                .clipShape(Capsule())
                 .padding(.top, 12)
                 Spacer()
             }
@@ -53,8 +61,13 @@ struct PoleIDCaptureView: View {
             if vm.showManualEntry {
                 manualEntryOverlay
             }
+
+            if vm.camera.permissionDenied {
+                CameraPermissionDeniedView { workflow.exit() }
+            }
         }
         .navigationBarHidden(true)
+        .onDisappear { vm.stop() }
         // Watch for auto-capture completion
         .onChange(of: vm.autoCaptured) { captured in
             if captured { proceedToNextStep() }

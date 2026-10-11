@@ -110,7 +110,14 @@ final class MockSAPServer: ObservableObject {
         } else if method == "POST" && path == "/api/v1/sessions" {
             if let data = body.data(using: .utf8),
                let dto = try? JSONDecoder().decode(SessionDTO.self, from: data) {
-                DispatchQueue.main.async { self.receivedSessions.append(dto) }
+                // Re-submitting an edited session replaces the earlier copy (upsert by sessionId)
+                DispatchQueue.main.async {
+                    if let i = self.receivedSessions.firstIndex(where: { $0.sessionId == dto.sessionId }) {
+                        self.receivedSessions[i] = dto
+                    } else {
+                        self.receivedSessions.append(dto)
+                    }
+                }
                 respond(connection, status: 201, body: "{\"accepted\":true}")
             } else {
                 respond(connection, status: 422, body: "{\"error\":\"invalid body\"}")

@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1A9C8C575082FE8FEBC66440 /* CaptureChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F18C37409CECAC71DAF7E5 /* CaptureChrome.swift */; };
 		1F000861893E375F24078909 /* ActionButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A8686DE43252ABFC5980A33 /* ActionButtonStyle.swift */; };
 		22B290AD45432CDE9469528E /* ConnectivityMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F064EF947DEC510EF7DDF2A /* ConnectivityMonitor.swift */; };
 		532C0CA08962676ECD1EF00C /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19285288348A0D71E478848B /* SessionStore.swift */; };
 		6118F6345D9E339669065BB7 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45462952E522FB0231A77860 /* SessionListView.swift */; };
 		64472C33C3841D2BE53390C2 /* CameraPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23482974C55644273CF8AFE1 /* CameraPreviewView.swift */; };
 		7581DCE1F6BA82CBA5754890 /* WorkflowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C558EB64B96AA71166468972 /* WorkflowViewModel.swift */; };
+		79B0F5EFABFB602A10120112 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F781AD1EFD8EDAE3CF06854E /* HomeView.swift */; };
 		7CAB768B032897FAD272AB04 /* StreetlightMapperApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B49875B6F47AC54F73CAF9D5 /* StreetlightMapperApp.swift */; };
 		7D025D36467AE32F862C7CEE /* PoleIDCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677BA8EA2911FC9DCC868629 /* PoleIDCaptureView.swift */; };
 		868EA3826EF71C3DE4DFEAAF /* MockSAPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3436B5E7D0376E308A79099A /* MockSAPServer.swift */; };
@@ -39,6 +41,7 @@
 		677BA8EA2911FC9DCC868629 /* PoleIDCaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDCaptureView.swift; sourceTree = "<group>"; };
 		6A94AA0BBB91D47F45D381C7 /* CameraManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraManager.swift; sourceTree = "<group>"; };
 		6DD8F48CBEA74977A052CCD1 /* StreetlightMapper.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = StreetlightMapper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		73F18C37409CECAC71DAF7E5 /* CaptureChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureChrome.swift; sourceTree = "<group>"; };
 		7A8686DE43252ABFC5980A33 /* ActionButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonStyle.swift; sourceTree = "<group>"; };
 		82C05E1C08CAD67B66170D5B /* DebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugView.swift; sourceTree = "<group>"; };
 		98D4680FDED9C7FD0EB08245 /* SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncService.swift; sourceTree = "<group>"; };
@@ -46,6 +49,7 @@
 		9E80DFFC401AC301934C4ABF /* PoleIDExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDExtractor.swift; sourceTree = "<group>"; };
 		B49875B6F47AC54F73CAF9D5 /* StreetlightMapperApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreetlightMapperApp.swift; sourceTree = "<group>"; };
 		C558EB64B96AA71166468972 /* WorkflowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViewModel.swift; sourceTree = "<group>"; };
+		F781AD1EFD8EDAE3CF06854E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		FA5BE1E0824ADBD33E582933 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -81,6 +85,7 @@
 				9DAE7786D87C3132F20DB05E /* ContentView.swift */,
 				A5229E4D757BB2BD8D654FEA /* Capture */,
 				36B014370D3CF2A2555F48B1 /* Debug */,
+				B9517617B9ED6BAA6C9A38B7 /* Home */,
 				76C3266DC678460834257F8B /* Session */,
 				800485E82E1CAF2D4C2F4A97 /* Supporting */,
 			);
@@ -108,6 +113,7 @@
 			isa = PBXGroup;
 			children = (
 				7A8686DE43252ABFC5980A33 /* ActionButtonStyle.swift */,
+				73F18C37409CECAC71DAF7E5 /* CaptureChrome.swift */,
 			);
 			path = Supporting;
 			sourceTree = "<group>";
@@ -169,6 +175,14 @@
 				19285288348A0D71E478848B /* SessionStore.swift */,
 			);
 			path = Persistence;
+			sourceTree = "<group>";
+		};
+		B9517617B9ED6BAA6C9A38B7 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				F781AD1EFD8EDAE3CF06854E /* HomeView.swift */,
+			);
+			path = Home;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -233,11 +247,13 @@
 				1F000861893E375F24078909 /* ActionButtonStyle.swift in Sources */,
 				F10C9220D2927037126DA189 /* CameraManager.swift in Sources */,
 				64472C33C3841D2BE53390C2 /* CameraPreviewView.swift in Sources */,
+				1A9C8C575082FE8FEBC66440 /* CaptureChrome.swift in Sources */,
 				C52DDD21F86DE608D4410552 /* CaptureModels.swift in Sources */,
 				D6EB6C6F597A4E7461894C48 /* CaptureViewModel.swift in Sources */,
 				22B290AD45432CDE9469528E /* ConnectivityMonitor.swift in Sources */,
 				954A3C20DAD38C47C95506E7 /* ContentView.swift in Sources */,
 				C697E484B4E293CBAB977C82 /* DebugView.swift in Sources */,
+				79B0F5EFABFB602A10120112 /* HomeView.swift in Sources */,
 				868EA3826EF71C3DE4DFEAAF /* MockSAPServer.swift in Sources */,
 				7D025D36467AE32F862C7CEE /* PoleIDCaptureView.swift in Sources */,
 				F96DF29445326AF2808248F2 /* PoleIDExtractor.swift in Sources */,

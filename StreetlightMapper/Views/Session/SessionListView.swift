@@ -137,8 +137,18 @@ struct SyncStatusBadge: View {
 // MARK: - Session Detail
 
 struct SessionDetailView: View {
-    let session: CaptureSession
+    let initialSession: CaptureSession
     @EnvironmentObject private var store: SessionStore
+    @EnvironmentObject private var workflow: WorkflowViewModel
+
+    init(session: CaptureSession) {
+        self.initialSession = session
+    }
+
+    /// Always show the stored copy so edits appear immediately.
+    private var session: CaptureSession {
+        store.sessions.first(where: { $0.id == initialSession.id }) ?? initialSession
+    }
 
     var body: some View {
         List {
@@ -168,6 +178,11 @@ struct SessionDetailView: View {
         .listStyle(.insetGrouped)
         .navigationTitle(session.poleID)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Edit") { workflow.edit(session) }
+            }
+        }
     }
 }
 

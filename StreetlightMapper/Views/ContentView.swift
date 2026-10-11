@@ -1,7 +1,8 @@
 import SwiftUI
 
 // MARK: - Root Content View
-// Tab bar: New Capture | History | Integration Test
+// Tabs: Home | History | Integration Test.
+// The capture flow opens full screen from Home so the camera never starts unprompted.
 
 struct ContentView: View {
 
@@ -10,24 +11,21 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Tab 1 — active capture workflow
-            captureWorkflowView
-                .tabItem { Label("Capture", systemImage: "camera.viewfinder") }
+            HomeView(selectedTab: $selectedTab)
+                .tabItem { Label("Home", systemImage: "house") }
                 .tag(0)
 
-            // Tab 2 — saved sessions
             SessionListView()
                 .tabItem { Label("History", systemImage: "list.bullet.clipboard") }
                 .tag(1)
 
-            // Tab 3 — mock SAP integration / debug
             DebugView()
                 .tabItem { Label("Integration", systemImage: "network") }
                 .tag(2)
         }
-        // After saving, jump to History automatically
-        .onChange(of: workflow.isSaved) { saved in
-            if saved { selectedTab = 1 }
+        .fullScreenCover(isPresented: $workflow.isActive, onDismiss: workflow.cleanupAfterDismiss) {
+            captureWorkflowView
+                .environmentObject(workflow)
         }
     }
 

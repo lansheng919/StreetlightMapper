@@ -2,6 +2,7 @@ import Foundation
 import Combine
 
 /// Drives the multi-step workflow: capture pole → capture ≥1 street lights → review → submit.
+/// Also handles resuming an unfinished capture and editing an already-saved one.
 final class WorkflowViewModel: ObservableObject {
 
     enum Step {
@@ -15,6 +16,13 @@ final class WorkflowViewModel: ObservableObject {
     @Published var currentStep: Step = .capturePoloID
     @Published var session: CaptureSession?
     @Published var isSaved = false
+    /// True while the full-screen capture flow is presented.
+    @Published var isActive = false
+    /// True when `session` is a copy of an already-saved session being edited.
+    @Published private(set) var isEditingExisting = false
+
+    /// An unfinished capture the technician can resume or discard.
+    var hasDraft: Bool { session != nil && !isSaved }
 
     // MARK: Dependencies
 
@@ -27,6 +35,48 @@ final class WorkflowViewModel: ObservableObject {
     init(store: SessionStore, sync: SyncService) {
         self.store = store
         self.sync = sync
+    }
+
+    // MARK: Entering / leaving the flow
+
+    /// Starts a fresh capture, discarding any draft.
+    func startNew() {
+        discardDraft()
+        isActive = true
+    }
+
+    /// Re-opens the unfinished capture where the technician left off.
+    func resume() {
+        guard session != nil else { return startNew() }
+        isActive = true
+    }
+
+    /// Opens a saved session in the review screen for editing.
+    func edit(_ saved: CaptureSession) {
+        session = saved
+        isSaved = false
+        isEditingExisting = true
+        currentStep = .review
+        isActive = true
+    }
+
+    /// Closes the flow but keeps the draft so it can be resumed.
+    func exit() {
+        isActive = false
+    }
+
+    /// Throws the current draft away.
+    func discardDraft() {
+        session = nil
+        isSaved = false
+        isEditingExisting = false
+        currentStep = .capturePoloID
+    }
+
+    /// Called once the full-screen flow has been dismissed. A finished or edited-existing
+    /// session is cleared; only an unfinished new capture stays as a resumable draft.
+    func cleanupAfterDismiss() {
+        if isSaved || isEditingExisting { discardDraft() }
     }
 
     // MARK: Step: Pole ID captured
@@ -67,20 +117,49 @@ final class WorkflowViewModel: ObservableObject {
         currentStep = .captureStreetLight
     }
 
-    // MARK: Save & submit
+    // MARK: Editing
 
-    func saveSession() {
-        guard let s = session else { return }
-        store.addSession(s)
-        isSaved = true
-        sync.syncAll()
+    /// Corrects the Pole ID by hand; the capture is then marked as manually entered.
+    func updatePoleID(_ value: String) {
+        guard var s = session, value != s.poleID else { return }
+        s.poleID = value
+        s.poleConfidence = .manual
+        s.updatedAt = Date()
+        session = s
     }
 
-    // MARK: Reset (start new workflow)
+    /// Corrects one street light serial number by hand.
+    func updateSerial(lightID: UUID, value: String) {
+        guard var s = session,
+              let idx = s.streetLights.firstIndex(where: { $0.id == lightID }),
+              s.streetLights[idx].serialNumber != value else { return }
+        s.streetLights[idx].serialNumber = value
+        s.streetLights[idx].confidence = .manual
+        s.updatedAt = Date()
+        session = s
+    }
 
-    func reset() {
-        session = nil
-        isSaved = false
-        currentStep = .capturePoloID
+    func deleteStreetLights(at offsets: IndexSet) {
+        guard var s = session else { return }
+        s.streetLights.remove(atOffsets: offsets)
+        s.updatedAt = Date()
+        session = s
+    }
+
+    // MARK: Save & submit
+
+    /// Saves to the local database (new or edited) and queues it for upload.
+    func saveSession() {
+        guard var s = session, !s.streetLights.isEmpty else { return }
+        s.syncStatus = .pending
+        s.updatedAt = Date()
+        if isEditingExisting {
+            store.updateSession(s)
+        } else {
+            store.addSession(s)
+        }
+        session = s
+        isSaved = true
+        sync.syncAll()
     }
 }

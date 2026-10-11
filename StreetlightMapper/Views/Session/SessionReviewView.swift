@@ -1,24 +1,73 @@
 import SwiftUI
 
 // MARK: - Session Review Screen
-// Shows the Pole ID, all captured street lights, confidence status,
-// and provides Save / Add-Another / Reset actions.
+// Shows the Pole ID, all captured street lights and their confidence status.
+// Technicians can correct values, remove lights, add more, and save.
+// Used both at the end of a new capture and when editing a saved one.
 
 struct SessionReviewView: View {
 
     @EnvironmentObject private var workflow: WorkflowViewModel
     @EnvironmentObject private var store: SessionStore
 
+    private enum EditTarget: Identifiable {
+        case pole
+        case light(UUID)
+        var id: String {
+            switch self {
+            case .pole: return "pole"
+            case .light(let id): return id.uuidString
+            }
+        }
+    }
+
+    @State private var editTarget: EditTarget?
+    @State private var confirmClose = false
+
+    private var hasUnsavedEdits: Bool {
+        guard workflow.isEditingExisting, let current = workflow.session,
+              let original = store.sessions.first(where: { $0.id == current.id }) else { return false }
+        return !workflow.isSaved && original != current
+    }
+
     var body: some View {
         NavigationView {
             List {
+                if workflow.isSaved { savedBanner }
                 poleSection
                 streetLightSection
                 actionsSection
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("Review")
+            .navigationTitle(workflow.isEditingExisting ? "Edit Capture" : "Review")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(workflow.isSaved ? "Done" : "Close") { close() }
+                }
+            }
+            .sheet(item: $editTarget) { target in
+                editSheet(for: target)
+            }
+            .confirmationDialog("Discard your changes?",
+                                isPresented: $confirmClose,
+                                titleVisibility: .visible) {
+                Button("Discard changes", role: .destructive) { workflow.exit() }
+                Button("Keep editing", role: .cancel) {}
+            }
+        }
+    }
+
+    private func close() {
+        if hasUnsavedEdits { confirmClose = true } else { workflow.exit() }
+    }
+
+    // MARK: Saved banner
+
+    private var savedBanner: some View {
+        Section {
+            Label("Saved. It will upload as soon as you are online.", systemImage: "checkmark.seal.fill")
+                .foregroundColor(.green)
         }
     }
 
@@ -27,10 +76,22 @@ struct SessionReviewView: View {
     private var poleSection: some View {
         Section(header: Text("Pole ID")) {
             if let s = workflow.session {
-                LabeledRow(title: "Pole ID", value: s.poleID)
-                LabeledRow(title: "Capture quality",
-                           value: s.poleConfidence.displayLabel,
-                           accent: colorFor(s.poleConfidence))
+                Button { editTarget = .pole } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(s.poleID)
+                                .font(.system(.title3, design: .monospaced).bold())
+                                .foregroundColor(.primary)
+                            ConfidenceBadge(confidence: s.poleConfidence)
+                        }
+                        Spacer()
+                        if !workflow.isSaved {
+                            Image(systemName: "pencil").foregroundColor(.blue)
+                        }
+                    }
+                }
+                .disabled(workflow.isSaved)
+
                 if let path = s.polePotoPath,
                    let url = store.photoURL(relativePath: path),
                    let img = UIImage(contentsOfFile: url.path) {
@@ -48,24 +109,33 @@ struct SessionReviewView: View {
     // MARK: Street Lights Section
 
     private var streetLightSection: some View {
-        Section(header: streetLightHeader) {
+        Section(header: streetLightHeader,
+                footer: Text(workflow.isSaved ? "" : "Tap a serial number to correct it. Swipe left to remove a light.")) {
             if let lights = workflow.session?.streetLights, !lights.isEmpty {
                 ForEach(Array(lights.enumerated()), id: \.element.id) { idx, light in
-                    VStack(alignment: .leading, spacing: 4) {
+                    Button { editTarget = .light(light.id) } label: {
                         HStack {
-                            Text("SL \(idx + 1)")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Light \(idx + 1)")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(light.serialNumber)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.primary)
+                            }
                             Spacer()
                             ConfidenceBadge(confidence: light.confidence)
+                            if !workflow.isSaved {
+                                Image(systemName: "pencil").foregroundColor(.blue)
+                            }
                         }
-                        Text(light.serialNumber)
-                            .font(.system(.body, design: .monospaced))
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 4)
+                    .disabled(workflow.isSaved)
                 }
+                .onDelete(perform: workflow.isSaved ? nil : { workflow.deleteStreetLights(at: $0) })
             } else {
-                Text("No street lights captured yet")
+                Text("No street lights yet. Add at least one to save.")
                     .foregroundColor(.secondary)
             }
         }
@@ -86,52 +156,96 @@ struct SessionReviewView: View {
 
     private var actionsSection: some View {
         Section {
-            Button(action: { workflow.addAnotherStreetLight() }) {
-                Label("Add Another Street Light", systemImage: "plus.circle")
-            }
+            if workflow.isSaved {
+                Button { workflow.startNew() } label: {
+                    Label("Capture Another Pole", systemImage: "camera.viewfinder")
+                }
+            } else {
+                Button { workflow.addAnotherStreetLight() } label: {
+                    Label("Add a Street Light", systemImage: "plus.circle")
+                }
 
-            Button(action: {
-                workflow.saveSession()
-            }) {
-                Label(workflow.isSaved ? "Saved ✓" : "Save & Submit",
-                      systemImage: workflow.isSaved ? "checkmark.seal.fill" : "square.and.arrow.up")
-                    .foregroundColor(workflow.isSaved ? .green : .blue)
-            }
-            .disabled(workflow.isSaved || workflow.session?.streetLights.isEmpty == true)
-
-            Button(role: .destructive, action: { workflow.reset() }) {
-                Label("Start New Capture", systemImage: "arrow.counterclockwise")
+                Button { workflow.saveSession() } label: {
+                    Label(workflow.isEditingExisting ? "Save Changes" : "Save",
+                          systemImage: "square.and.arrow.down")
+                        .bold()
+                }
+                .disabled(workflow.session?.streetLights.isEmpty != false)
             }
         }
     }
 
-    // MARK: Helpers
+    // MARK: Edit sheet
 
-    private func colorFor(_ confidence: Confidence) -> Color {
-        switch confidence {
-        case .high:   return .green
-        case .low:    return .orange
-        case .manual: return .blue
+    @ViewBuilder
+    private func editSheet(for target: EditTarget) -> some View {
+        switch target {
+        case .pole:
+            ValueEditSheet(
+                title: "Edit Pole ID",
+                hint: "5 to 10 digits",
+                initial: workflow.session?.poleID ?? "",
+                isNumeric: true,
+                validate: PoleIDExtractor.isValid
+            ) { workflow.updatePoleID($0) }
+        case .light(let id):
+            ValueEditSheet(
+                title: "Edit Serial Number",
+                hint: "Serial number",
+                initial: workflow.session?.streetLights.first(where: { $0.id == id })?.serialNumber ?? "",
+                isNumeric: false,
+                validate: { !$0.isEmpty }
+            ) { workflow.updateSerial(lightID: id, value: $0) }
         }
     }
 }
 
-// MARK: - Labeled Row
+// MARK: - Edit sheet
 
-private struct LabeledRow: View {
+private struct ValueEditSheet: View {
     let title: String
-    let value: String
-    var accent: Color = .primary
+    let hint: String
+    let initial: String
+    let isNumeric: Bool
+    let validate: (String) -> Bool
+    let onSave: (String) -> Void
+
+    @Environment(\.presentationMode) private var presentation
+    @State private var text = ""
+
+    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        HStack {
-            Text(title)
-                .foregroundColor(.secondary)
-            Spacer()
-            Text(value)
-                .font(.system(.body, design: .monospaced))
-                .foregroundColor(accent)
-                .multilineTextAlignment(.trailing)
+        NavigationView {
+            Form {
+                Section(footer: Text("Corrected values are marked as MANUAL.")) {
+                    TextField(hint, text: $text)
+                        .keyboardType(isNumeric ? .numberPad : .default)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .font(.system(.body, design: .monospaced))
+                }
+                if !trimmed.isEmpty && !validate(trimmed) {
+                    Text("Doesn't look right: \(hint.lowercased()).")
+                        .font(.footnote)
+                        .foregroundColor(.orange)
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { presentation.wrappedValue.dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        onSave(trimmed)
+                        presentation.wrappedValue.dismiss()
+                    }
+                    .disabled(!validate(trimmed))
+                }
+            }
+            .onAppear { text = initial }
         }
     }
 }

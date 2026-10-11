@@ -25,24 +25,30 @@ struct StreetLightCaptureView: View {
 
             // Top header
             VStack {
-                HStack {
-                    Image(systemName: "qrcode.viewfinder")
-                    Text("Street Light QR Scan")
-                        .font(.headline)
-                    Spacer()
-                    if let s = workflow.session {
-                        Text("\(s.streetLights.count) captured")
-                            .font(.caption)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.8))
-                            .clipShape(Capsule())
+                HStack(spacing: 10) {
+                    CloseCaptureButton { workflow.exit() }
+
+                    HStack {
+                        Image(systemName: "qrcode.viewfinder")
+                        Text("Step 2 of 2 · Street light")
+                            .font(.headline)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Spacer()
+                        if let s = workflow.session {
+                            Text("\(s.streetLights.count) captured")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.8))
+                                .clipShape(Capsule())
+                        }
                     }
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.black.opacity(0.55))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .foregroundColor(.white)
-                .padding(12)
-                .background(Color.black.opacity(0.55))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 Spacer()
@@ -60,8 +66,13 @@ struct StreetLightCaptureView: View {
             if vm.showManualEntry {
                 manualEntryOverlay
             }
+
+            if vm.camera.permissionDenied {
+                CameraPermissionDeniedView { workflow.exit() }
+            }
         }
         .navigationBarHidden(true)
+        .onDisappear { vm.stop() }
         .onChange(of: vm.autoCaptured) { captured in
             if captured { proceedAfterCapture() }
         }
