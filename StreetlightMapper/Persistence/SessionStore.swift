@@ -63,7 +63,7 @@ final class SessionStore: ObservableObject {
 
     /// Deletes the pole and street-light photo files of a session from disk.
     func deletePhotos(of session: CaptureSession) {
-        let paths = [session.polePotoPath].compactMap { $0 } + session.streetLights.compactMap { $0.photoPath }
+        let paths = [session.polePhotoPath].compactMap { $0 } + session.streetLights.compactMap { $0.photoPath }
         for path in paths {
             try? FileManager.default.removeItem(at: baseDir.appendingPathComponent(path))
         }
@@ -130,7 +130,7 @@ final class SessionStore: ObservableObject {
             sessionId: session.id.uuidString,
             poleId: session.poleID,
             poleConfidence: session.poleConfidence.rawValue,
-            polePotoPath: session.polePotoPath,
+            polePhotoPath: session.polePhotoPath,
             streetLights: session.streetLights.map { sl in
                 StreetLightDTO(
                     id: sl.id.uuidString,

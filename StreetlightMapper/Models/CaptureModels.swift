@@ -50,7 +50,7 @@ struct CaptureSession: Identifiable, Codable, Equatable {
     var id: UUID
     var poleID: String
     var poleConfidence: Confidence
-    var polePotoPath: String?
+    var polePhotoPath: String?
     var streetLights: [StreetLightEntry]
     var syncStatus: SyncStatus
     var createdAt: Date
@@ -64,11 +64,51 @@ struct CaptureSession: Identifiable, Codable, Equatable {
         self.id = UUID()
         self.poleID = poleID
         self.poleConfidence = poleConfidence
-        self.polePotoPath = polePhotoPath
+        self.polePhotoPath = polePhotoPath
         self.streetLights = []
         self.syncStatus = .pending
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+
+    /// Captures saved by versions before this one stored the pole photo under a misspelled key
+    /// (`polePotoPath`). Read it so existing data on the phone keeps its photo.
+    private struct LegacyKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+        static let polePotoPath = LegacyKey(stringValue: "polePotoPath")!
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        poleID = try c.decode(String.self, forKey: .poleID)
+        poleConfidence = try c.decode(Confidence.self, forKey: .poleConfidence)
+        streetLights = try c.decode([StreetLightEntry].self, forKey: .streetLights)
+        syncStatus = try c.decode(SyncStatus.self, forKey: .syncStatus)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        lastSyncedAt = try c.decodeIfPresent(Date.self, forKey: .lastSyncedAt)
+        if let current = try c.decodeIfPresent(String.self, forKey: .polePhotoPath) {
+            polePhotoPath = current
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyKey.self)
+            polePhotoPath = try legacy.decodeIfPresent(String.self, forKey: .polePotoPath)
+        }
+    }
+
+    /// True when a street light with this serial number is already on the pole.
+    /// Compared without regard to case or surrounding spaces, since a QR payload or typed
+    /// value can differ in those without being a different device.
+    func hasSerial(_ serial: String, excluding lightID: UUID? = nil) -> Bool {
+        let wanted = Self.normalized(serial)
+        return streetLights.contains { $0.id != lightID && Self.normalized($0.serialNumber) == wanted }
+    }
+
+    private static func normalized(_ serial: String) -> String {
+        serial.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     mutating func addStreetLight(_ entry: StreetLightEntry) {
@@ -119,7 +159,9 @@ struct SessionDTO: Codable {
     let sessionId: String
     let poleId: String
     let poleConfidence: String
-    let polePotoPath: String?
+    /// Relative path of the pole photo. The JPEG itself is uploaded first with
+    /// `PUT /api/v1/<path>` and can be fetched back with `GET /api/v1/<path>`.
+    let polePhotoPath: String?
     let streetLights: [StreetLightDTO]
     let createdAt: String
     let syncStatus: String

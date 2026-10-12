@@ -86,6 +86,46 @@ final class CaptureViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isHighConfidence)
     }
 
+    // MARK: rejected values (duplicate serial on the same pole)
+
+    func testRejectedValueNeverBecomesHighConfidenceOrAutoCaptures() {
+        vm.shouldReject = { $0 == "E5000531" }
+        for _ in 0..<5 { scan("E5000531", 1.0, type: .qrCode) }
+        XCTAssertTrue(vm.isRejected)
+        XCTAssertFalse(vm.isHighConfidence)
+        XCTAssertFalse(vm.isStabilising)
+        XCTAssertFalse(vm.isCapturing)
+    }
+
+    func testRejectionClearsWhenAnotherCodeIsScanned() {
+        vm.shouldReject = { $0 == "E5000531" }
+        scan("E5000531", 1.0, type: .qrCode)
+        XCTAssertTrue(vm.isRejected)
+        for _ in 0..<kRequiredStableReads { scan("E5000532", 1.0, type: .qrCode) }
+        XCTAssertFalse(vm.isRejected)
+        XCTAssertTrue(vm.isHighConfidence)
+    }
+
+    func testManualEntryOfRejectedValueIsRefusedWithMessage() {
+        vm.shouldReject = { $0 == "E5000531" }
+        vm.rejectionMessage = "already captured"
+        vm.manualEntryText = "e5000531"
+        vm.shouldReject = { $0.lowercased() == "e5000531" }
+        vm.confirmManual()
+        XCTAssertEqual(vm.manualError, "already captured")
+        XCTAssertNotEqual(vm.finalValue, "e5000531", "value not accepted")
+        XCTAssertFalse(vm.isCapturing)
+    }
+
+    func testManualEntryOfAcceptableValueClearsTheError() {
+        vm.shouldReject = { $0 == "E1" }
+        vm.manualEntryText = "E1"; vm.confirmManual()
+        XCTAssertNotNil(vm.manualError)
+        vm.manualEntryText = "E2"; vm.confirmManual()
+        XCTAssertNil(vm.manualError)
+        XCTAssertEqual(vm.finalValue, "E2")
+    }
+
     // MARK: shutter + manual flow
 
     func testShutterOpensVerifySheetWhenNotHighConfidence() {

@@ -56,7 +56,7 @@ final class WorkflowViewModelTests: XCTestCase {
         workflow.poleIDCaptured(poleID: "208125", confidence: .high, photoData: Data([1]))
         XCTAssertEqual(workflow.currentStep, .captureStreetLight)
         XCTAssertEqual(workflow.session?.poleID, "208125")
-        XCTAssertNotNil(workflow.session?.polePotoPath, "photo is stored")
+        XCTAssertNotNil(workflow.session?.polePhotoPath, "photo is stored")
     }
 
     func testOnePoleManyStreetLights() {
@@ -214,6 +214,59 @@ final class WorkflowViewModelTests: XCTestCase {
         XCTAssertEqual(store.sessions[0].poleID, "208125", "unsaved edit is not stored")
     }
 
+    // MARK: duplicate serial numbers (DEF-02)
+
+    func testSameSerialCannotBeAddedTwiceToOnePole() {
+        captureFullSession(lights: ["E1"])
+        workflow.addAnotherStreetLight()
+        XCTAssertFalse(workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: Data([9])))
+        XCTAssertEqual(workflow.session?.streetLights.count, 1)
+    }
+
+    func testDuplicateCheckIgnoresCaseAndSpaces() {
+        captureFullSession(lights: ["E5000531"])
+        XCTAssertTrue(workflow.isDuplicateSerial("e5000531"))
+        XCTAssertTrue(workflow.isDuplicateSerial("  E5000531 "))
+        XCTAssertFalse(workflow.isDuplicateSerial("E5000532"))
+    }
+
+    func testRefusedDuplicateDoesNotLeaveAnOrphanPhoto() throws {
+        captureFullSession(lights: ["E1"])
+        let photosDir = try XCTUnwrap(store.photoURL(relativePath: "photos"))
+        let before = (try? FileManager.default.contentsOfDirectory(atPath: photosDir.path))?.count ?? 0
+        workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: Data([9]))
+        let after = (try? FileManager.default.contentsOfDirectory(atPath: photosDir.path))?.count ?? 0
+        XCTAssertEqual(before, after)
+    }
+
+    func testSameSerialIsAllowedOnADifferentPole() {
+        captureFullSession(lights: ["E1"])
+        workflow.saveSession()
+        workflow.exit(); workflow.cleanupAfterDismiss()
+        workflow.startNew()
+        workflow.poleIDCaptured(poleID: "999999", confidence: .high, photoData: nil)
+        XCTAssertTrue(workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: nil))
+    }
+
+    func testEditingASerialToAnotherLightsValueIsRefused() {
+        captureFullSession(lights: ["E1", "E2"])
+        let second = workflow.session!.streetLights[1].id
+        workflow.updateSerial(lightID: second, value: "E1")
+        XCTAssertEqual(workflow.session?.streetLights[1].serialNumber, "E2", "unchanged")
+        XCTAssertEqual(workflow.session?.streetLights[1].confidence, .high)
+    }
+
+    func testBackToReviewNeedsAtLeastOneLight() {
+        workflow.startNew()
+        workflow.poleIDCaptured(poleID: "208125", confidence: .high, photoData: nil)
+        workflow.backToReview()
+        XCTAssertEqual(workflow.currentStep, .captureStreetLight)
+        workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: nil)
+        workflow.addAnotherStreetLight()
+        workflow.backToReview()
+        XCTAssertEqual(workflow.currentStep, .review)
+    }
+
     // MARK: sync is separate from save
 
     func testSaveDoesNotUpload() {
@@ -231,7 +284,9 @@ final class WorkflowViewModelTests: XCTestCase {
         workflow.saveSession()
         workflow.syncCurrent()
         XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced })
-        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+        // 3 photo uploads (pole + 2 lights) followed by the one record
+        XCTAssertEqual(StubURLProtocol.requests.count, 4)
+        XCTAssertEqual(StubURLProtocol.requests.last?.httpMethod, "POST")
     }
 
     // MARK: delete (only captures the server has never received)
@@ -240,7 +295,7 @@ final class WorkflowViewModelTests: XCTestCase {
         captureFullSession()
         workflow.saveSession()
         let s = store.sessions[0]
-        let photos = [s.polePotoPath].compactMap { $0 } + s.streetLights.compactMap(\.photoPath)
+        let photos = [s.polePhotoPath].compactMap { $0 } + s.streetLights.compactMap(\.photoPath)
         XCTAssertFalse(photos.isEmpty)
         for p in photos { XCTAssertTrue(FileManager.default.fileExists(atPath: store.photoURL(relativePath: p)!.path)) }
 

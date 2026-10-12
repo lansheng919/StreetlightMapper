@@ -25,6 +25,10 @@ final class CaptureViewModel: ObservableObject {
     @Published var isStabilising = false      // confident read, waiting for repeat confirmations
     @Published var showManualEntry = false
     @Published var manualEntryText = ""
+    /// The current value is one the caller refuses (e.g. a serial already on this pole).
+    @Published private(set) var isRejected = false
+    /// Shown in the manual entry sheet when the typed value is refused.
+    @Published var manualError: String?
     @Published var capturedPhotoData: Data?
     @Published var autoCaptured = false
     @Published var isCapturing = false    // "flash" animation while auto-capturing
@@ -32,6 +36,10 @@ final class CaptureViewModel: ObservableObject {
     // MARK: Dependencies
 
     let camera: CameraManager
+    /// Return true for a value that must not be captured. A rejected value never auto-captures
+    /// and cannot be confirmed by hand.
+    var shouldReject: ((String) -> Bool)?
+    var rejectionMessage = "This value has already been captured."
 
     // MARK: Private
 
@@ -80,8 +88,11 @@ final class CaptureViewModel: ObservableObject {
         detectedValue = result.value
         confidence = result.confidence
 
+        // A value the caller refuses (duplicate) is never confident and never auto-captures.
+        isRejected = shouldReject?(result.value) ?? false
+
         // Wrong-format or low-confidence reads reset the streak and need verification.
-        let confident = result.isValidFormat && result.confidence >= kHighConfidenceThreshold
+        let confident = result.isValidFormat && result.confidence >= kHighConfidenceThreshold && !isRejected
         let now = Date()
         if confident {
             let consecutive = result.value == streakValue
@@ -128,10 +139,17 @@ final class CaptureViewModel: ObservableObject {
 
     /// Called when technician taps "Verify / Update" with low confidence.
     func confirmManual() {
-        guard !manualEntryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        let typed = manualEntryText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return }
+        if shouldReject?(typed) == true {
+            manualError = rejectionMessage
+            return
+        }
+        manualError = nil
         manualLocked = true
         isStabilising = false
-        detectedValue = manualEntryText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isRejected = false
+        detectedValue = typed
         confidence = 0
         isHighConfidence = false
         showManualEntry = false

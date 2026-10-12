@@ -111,7 +111,7 @@ struct SessionReviewView: View {
                 }
                 .disabled(workflow.isSaved)
 
-                if let path = s.polePotoPath,
+                if let path = s.polePhotoPath,
                    let url = store.photoURL(relativePath: path),
                    let img = UIImage(contentsOfFile: url.path) {
                     Image(uiImage: img)
@@ -239,7 +239,12 @@ struct SessionReviewView: View {
                 hint: "Serial number",
                 initial: workflow.session?.streetLights.first(where: { $0.id == id })?.serialNumber ?? "",
                 isNumeric: false,
-                validate: { !$0.isEmpty }
+                validate: { !$0.isEmpty },
+                conflict: { value in
+                    workflow.session?.hasSerial(value, excluding: id) == true
+                        ? "This serial number is already on this pole."
+                        : nil
+                }
             ) { workflow.updateSerial(lightID: id, value: $0) }
         }
     }
@@ -253,6 +258,8 @@ private struct ValueEditSheet: View {
     let initial: String
     let isNumeric: Bool
     let validate: (String) -> Bool
+    /// Returns a message when the value is well formed but must still be refused (duplicate).
+    var conflict: (String) -> String? = { _ in nil }
     let onSave: (String) -> Void
 
     @Environment(\.presentationMode) private var presentation
@@ -274,6 +281,11 @@ private struct ValueEditSheet: View {
                     Text("Doesn't look right: \(hint.lowercased()).")
                         .font(.footnote)
                         .foregroundColor(.orange)
+                } else if let message = conflict(trimmed) {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                        .accessibilityIdentifier("edit.duplicateError")
                 }
             }
             .navigationTitle(title)
@@ -287,7 +299,7 @@ private struct ValueEditSheet: View {
                         onSave(trimmed)
                         presentation.wrappedValue.dismiss()
                     }
-                    .disabled(!validate(trimmed))
+                    .disabled(!validate(trimmed) || conflict(trimmed) != nil)
                 }
             }
             .onAppear { text = initial }

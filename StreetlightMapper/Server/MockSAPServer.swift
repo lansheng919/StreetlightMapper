@@ -7,6 +7,8 @@ import Network
 //   • Accepts POST /api/v1/sessions — stores the session JSON, returns 201
 //   • Accepts GET  /api/v1/sessions — lists all received sessions
 //   • Accepts GET  /api/v1/sessions/:id — fetches a single session
+//   • Accepts PUT  /api/v1/photos/:name — stores a JPEG (raw bytes in the body), returns 201
+//   • Accepts GET  /api/v1/photos/:name — returns a stored JPEG
 //   • Accepts GET  /api/v1/health — returns { "status": "ok" }
 //
 // This allows end-to-end testing without a live SAP environment.
@@ -18,6 +20,7 @@ final class MockSAPServer: ObservableObject {
 
     @Published private(set) var isRunning = false
     @Published private(set) var receivedSessions: [SessionDTO] = []
+    @Published private(set) var receivedPhotoCount = 0
     @Published private(set) var port: UInt16 = 8080
 
     // MARK: Private
@@ -25,10 +28,20 @@ final class MockSAPServer: ObservableObject {
     private var listener: NWListener?
     private let serverQueue = DispatchQueue(label: "com.slmapper.mockserver", qos: .background)
     private let encoder = JSONEncoder()
+    private let photoLock = NSLock()
+    private var photos: [String: Data] = [:]      // "photos/<name>.jpg" -> JPEG bytes
 
     /// Forgets everything the mock server has received (it only lives in memory anyway).
     func clearReceived() {
         receivedSessions.removeAll()
+        photoLock.lock(); photos.removeAll(); photoLock.unlock()
+        receivedPhotoCount = 0
+    }
+
+    /// The stored photo for a relative path such as "photos/pole_x.jpg", if the server has it.
+    func photo(named path: String) -> Data? {
+        photoLock.lock(); defer { photoLock.unlock() }
+        return photos[path]
     }
 
     // MARK: Start / Stop
@@ -74,11 +87,11 @@ final class MockSAPServer: ObservableObject {
             if let data = data { buffer.append(data) }
 
             if self.isComplete(request: buffer) || isComplete || error != nil {
-                guard !buffer.isEmpty, let raw = String(data: buffer, encoding: .utf8) else {
+                guard !buffer.isEmpty else {
                     connection.cancel()
                     return
                 }
-                self.route(raw: raw, connection: connection)
+                self.route(request: buffer, connection: connection)
             } else {
                 self.receive(on: connection, buffer: buffer)
             }
@@ -98,21 +111,44 @@ final class MockSAPServer: ObservableObject {
 
     // MARK: Routing
 
-    private func route(raw: String, connection: NWConnection) {
-        let lines = raw.components(separatedBy: "\r\n")
-        guard let requestLine = lines.first else { respond(connection, status: 400, body: "{}"); return }
-        let parts = requestLine.components(separatedBy: " ")
+    private func route(request: Data, connection: NWConnection) {
+        // Headers are text; the body stays raw bytes so a JPEG is not corrupted.
+        guard let headerEnd = request.range(of: Data("\r\n\r\n".utf8)) else {
+            respond(connection, status: 400, body: "{}"); return
+        }
+        let head = String(decoding: request[..<headerEnd.lowerBound], as: UTF8.self)
+        let bodyData = request[headerEnd.upperBound...]
+        let body = String(decoding: bodyData, as: UTF8.self)
+
+        let parts = (head.components(separatedBy: "\r\n").first ?? "").components(separatedBy: " ")
         guard parts.count >= 2 else { respond(connection, status: 400, body: "{}"); return }
 
         let method = parts[0]
         let path   = parts[1]
 
-        // Extract body (after blank line)
-        let bodyStart = raw.range(of: "\r\n\r\n")
-        let body = bodyStart.map { String(raw[raw.index($0.upperBound, offsetBy: 0)...]) } ?? ""
-
         if path == "/api/v1/health" {
-            respond(connection, status: 200, body: "{\"status\":\"ok\"}")
+            if method == "GET" {
+                respond(connection, status: 200, body: "{\"status\":\"ok\"}")
+            } else {
+                respond(connection, status: 405, body: "{\"error\":\"method not allowed\"}")
+            }
+
+        } else if method == "PUT" && path.hasPrefix("/api/v1/photos/") {
+            let key = String(path.dropFirst("/api/v1/".count))        // "photos/<name>"
+            guard !bodyData.isEmpty, !key.contains("..") else {
+                respond(connection, status: 422, body: "{\"error\":\"empty or invalid photo\"}"); return
+            }
+            photoLock.lock(); photos[key] = Data(bodyData); let count = photos.count; photoLock.unlock()
+            DispatchQueue.main.async { self.receivedPhotoCount = count }
+            respond(connection, status: 201, body: "{\"accepted\":true}")
+
+        } else if method == "GET" && path.hasPrefix("/api/v1/photos/") {
+            let key = String(path.dropFirst("/api/v1/".count))
+            if let data = photo(named: key) {
+                respond(connection, status: 200, data: data, contentType: "image/jpeg")
+            } else {
+                respond(connection, status: 404, body: "{\"error\":\"not found\"}")
+            }
 
         } else if method == "GET" && path == "/api/v1/sessions" {
             let json = (try? encoder.encode(receivedSessions)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
@@ -151,9 +187,12 @@ final class MockSAPServer: ObservableObject {
     // MARK: HTTP Response
 
     private func respond(_ connection: NWConnection, status: Int, body: String) {
-        let bodyData = body.data(using: .utf8)!
+        respond(connection, status: status, data: Data(body.utf8), contentType: "application/json")
+    }
+
+    private func respond(_ connection: NWConnection, status: Int, data bodyData: Data, contentType: String) {
         let header = "HTTP/1.1 \(status) \(statusText(status))\r\n" +
-                     "Content-Type: application/json\r\n" +
+                     "Content-Type: \(contentType)\r\n" +
                      "Content-Length: \(bodyData.count)\r\n" +
                      "Connection: close\r\n\r\n"
         var response = header.data(using: .utf8)!
@@ -170,6 +209,7 @@ final class MockSAPServer: ObservableObject {
         case 201: return "Created"
         case 400: return "Bad Request"
         case 404: return "Not Found"
+        case 405: return "Method Not Allowed"
         case 422: return "Unprocessable Entity"
         default:  return "Internal Server Error"
         }

@@ -1,4 +1,6 @@
-# StreetlightMapper
+# PoleLink (StreetlightMapper)
+
+> The app is called **PoleLink** on the iPhone. The project, folders and bundle ID keep the name StreetlightMapper.
 
 > iPhone application for field technicians to capture **Pole ID ↔ Street Light** associations using the device camera, with offline support and REST/SAP integration.
 
@@ -83,7 +85,9 @@ StreetlightMapper/
 
 ### 2. Street Light QR Capture
 - `VNDetectBarcodesRequest` targets QR, Code 128, and Data Matrix symbologies.
-- Same confidence/auto-capture logic as Pole ID.
+- Auto-capture after 3 identical reads. A QR code either decodes or it does not, so the HUD shows a plain status ("QR code read", "Hold steady…") instead of a percentage; only OCR shows a percentage.
+- **Duplicate protection:** a serial number already captured on the same pole (compared ignoring case and spaces) is shown in red as "Already captured on this pole", never auto-captures, and is refused if typed in by hand or when editing another light. The same serial on a *different* pole is allowed.
+- **Back to Review** returns to the review list without adding another light.
 - Header shows a running count of street lights captured for the current pole.
 
 ### 3. Pole ↔ Street Light Association
@@ -107,7 +111,11 @@ An embedded HTTP server (built on `Network.framework`'s `NWListener`) starts aut
 | `GET`  | `/api/v1/health` | Returns `{"status":"ok"}` |
 | `GET`  | `/api/v1/sessions` | All sessions received by the mock |
 | `GET`  | `/api/v1/sessions/:id` | Single session by UUID |
-| `POST` | `/api/v1/sessions` | Accept a `SessionDTO` payload |
+| `POST` | `/api/v1/sessions` | Accept a `SessionDTO` payload (upsert by `sessionId`) |
+| `PUT`  | `/api/v1/photos/:name` | Store a photo: the request body is the raw JPEG bytes (`Content-Type: image/jpeg`) |
+| `GET`  | `/api/v1/photos/:name` | Return a stored photo |
+
+**Photo upload order (per capture):** `PUT` every photo first, then `POST` the record. If any photo fails the record is not sent and the capture stays queued for retry (PUT is safe to repeat). The record's `polePhotoPath` and each light's `photoPath` (e.g. `photos/sl_<uuid>.jpg`) are the same paths used in the `PUT`/`GET` URLs, so a consumer fetches an image with `GET /api/v1/<photoPath>`. Wrong methods on `/health` return `405`.
 
 **Test from your Mac (same network):**
 ```bash
@@ -182,7 +190,7 @@ Both are declared in `Info.plist` with usage descriptions as required by App Sto
 |---------|----------------|
 | Database | Replace JSON store with CoreData or SQLite (GRDB) for large fleets |
 | Authentication | Add OAuth 2.0 / SAP SSO token to `SyncService` request headers |
-| Photo upload | Stream photos as multipart/form-data or upload to S3 separately |
+| Photo upload | Done as raw-JPEG `PUT`s. Switch to multipart or pre-signed S3/Blob URLs if SAP requires it (change `SyncService.uploadPhotos`) |
 | Pole ID format | Add a regex validator in `CaptureViewModel` to filter OCR noise |
 | QR symbology | Extend `request.symbologies` if devices use other barcode types |
 | Conflict resolution | Implement ETag / last-write-wins in `SyncService.uploadSession` |

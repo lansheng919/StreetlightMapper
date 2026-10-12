@@ -36,6 +36,12 @@ struct ScanOverlayView: View {
     let isStabilising: Bool                  // confident read, waiting for repeat confirmations
     let isCapturing: Bool
     let prompt: String                       // e.g. "Point at Pole ID label"
+    /// OCR has a real confidence score, so it is shown. A QR/barcode either decodes or it
+    /// does not, so for those the HUD shows a plain status instead of a percentage.
+    var showsPercentage: Bool = true
+    /// The detected value is refused (already captured on this pole).
+    var isRejected: Bool = false
+    var rejectedLabel: String = "Already captured"
 
     var body: some View {
         ZStack {
@@ -98,11 +104,13 @@ struct ScanOverlayView: View {
 
     private var borderColor: Color {
         if detectedValue.isEmpty { return .white }
+        if isRejected { return .red }
         return isHighConfidence ? .green : .yellow
     }
 
     private var badgeTextColor: Color {
-        isHighConfidence ? .green : .yellow
+        if isRejected { return .red }
+        return isHighConfidence ? .green : .yellow
     }
 
     private var badgeBg: Color {
@@ -110,6 +118,12 @@ struct ScanOverlayView: View {
     }
 
     private var confidenceLabel: String {
+        if isRejected { return "✕ \(rejectedLabel)" }
+        guard showsPercentage else {
+            if isHighConfidence { return "✓ QR code read" }
+            if isStabilising { return "Hold steady…" }
+            return "⚠ Verify required"
+        }
         let pct = Int(confidence * 100)
         if isHighConfidence { return "✓ \(pct)% confidence" }
         if isStabilising { return "Hold steady… \(pct)%" }

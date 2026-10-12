@@ -31,7 +31,7 @@ final class StreetlightMapperUITests: XCTestCase {
 
     func testLaunchShowsStartPageNotCamera() {
         launch()
-        XCTAssertTrue(app.navigationBars["Streetlight Mapper"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["PoleLink"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Start New Capture"].exists)
         XCTAssertTrue(app.staticTexts["How it works"].exists)
         XCTAssertTrue(app.staticTexts["1. Scan the Pole ID"].exists)
@@ -206,6 +206,22 @@ final class StreetlightMapperUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Edit Capture"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["review.delete"].exists)
         XCTAssertTrue(app.staticTexts["Already sent to the server, so it can't be deleted here."].exists)
+    }
+
+    // MARK: duplicate serial numbers
+
+    func testEditingSerialToAnExistingOneIsBlockedWithMessage() {
+        launch(seeded: true)                         // lights E5000531 and E5000532
+        tap(app.buttons.containing(.staticText, identifier: "208125").firstMatch)
+        tap(app.buttons.containing(.staticText, identifier: "E5000532").firstMatch)
+        let field = app.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.clearAndType("E5000531")
+        XCTAssertTrue(app.staticTexts["edit.duplicateError"].waitForExistence(timeout: 5)
+                      || app.staticTexts["This serial number is already on this pole."].exists)
+        XCTAssertFalse(app.buttons["Save"].isEnabled)
+        field.clearAndType("E5000599")
+        XCTAssertTrue(app.buttons["Save"].isEnabled)
     }
 
     func testDeleteAllCapturesFromIntegrationTab() {

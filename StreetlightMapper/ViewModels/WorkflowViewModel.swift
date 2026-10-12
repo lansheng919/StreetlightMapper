@@ -104,8 +104,16 @@ final class WorkflowViewModel: ObservableObject {
 
     // MARK: Step: Street light captured
 
-    func streetLightCaptured(serial: String, confidence: Confidence, photoData: Data?) {
-        guard var s = session else { return }
+    /// True if this serial number is already captured on the current pole.
+    func isDuplicateSerial(_ serial: String) -> Bool {
+        session?.hasSerial(serial) ?? false
+    }
+
+    /// Adds a street light to the pole. Returns false (and stores nothing) if the serial number
+    /// is already on this pole.
+    @discardableResult
+    func streetLightCaptured(serial: String, confidence: Confidence, photoData: Data?) -> Bool {
+        guard var s = session, !s.hasSerial(serial) else { return false }
         var photoPath: String?
         if let data = photoData {
             let name = "sl_\(UUID().uuidString).jpg"
@@ -118,11 +126,17 @@ final class WorkflowViewModel: ObservableObject {
         s.addStreetLight(entry)
         session = s
         currentStep = .review
+        return true
     }
 
     /// Technician wants to add another street light to this pole.
     func addAnotherStreetLight() {
         currentStep = .captureStreetLight
+    }
+
+    /// Leaves the street light camera without adding another light.
+    func backToReview() {
+        if session?.streetLights.isEmpty == false { currentStep = .review }
     }
 
     // MARK: Editing
@@ -136,11 +150,13 @@ final class WorkflowViewModel: ObservableObject {
         session = s
     }
 
-    /// Corrects one street light serial number by hand.
+    /// Corrects one street light serial number by hand. Refused if another light on this
+    /// pole already has that serial number.
     func updateSerial(lightID: UUID, value: String) {
         guard var s = session,
               let idx = s.streetLights.firstIndex(where: { $0.id == lightID }),
-              s.streetLights[idx].serialNumber != value else { return }
+              s.streetLights[idx].serialNumber != value,
+              !s.hasSerial(value, excluding: lightID) else { return }
         s.streetLights[idx].serialNumber = value
         s.streetLights[idx].confidence = .manual
         s.updatedAt = Date()

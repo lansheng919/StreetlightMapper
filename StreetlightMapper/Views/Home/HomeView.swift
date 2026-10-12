@@ -36,7 +36,7 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .navigationTitle("Streetlight Mapper")
+            .navigationTitle("PoleLink")
             .confirmationDialog("Discard the unfinished capture?",
                                 isPresented: $confirmDiscard,
                                 titleVisibility: .visible) {

@@ -113,7 +113,7 @@ final class SessionStoreTests: XCTestCase {
         let store = SessionStore(directory: dir)
         var synced = TestSupport.makeSession(pole: "111111", lights: [])
         let path = try XCTUnwrap(store.savePhoto(Data([1]), name: "pole_all.jpg"))
-        synced.polePotoPath = path
+        synced.polePhotoPath = path
         synced.addStreetLight(StreetLightEntry(sessionID: synced.id, serialNumber: "E1", confidence: .high))
         synced.markSynced()
         store.addSession(synced)
@@ -147,6 +147,27 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertNotNil(reloaded.lastSyncedAt)
         reloaded.syncStatus = .pending
         XCTAssertFalse(reloaded.canDelete)
+    }
+
+    /// Captures saved before the key was corrected (DEF-04) keep their pole photo.
+    func testCaptureSavedWithOldMisspelledKeyStillLoadsItsPhoto() throws {
+        let id = UUID().uuidString
+        let json = """
+        [{"id":"\(id)","poleID":"208125","poleConfidence":"high","polePotoPath":"photos/old.jpg",
+          "streetLights":[],"syncStatus":"pending","createdAt":"2026-10-11T00:00:00Z","updatedAt":"2026-10-11T00:00:00Z"}]
+        """
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data(json.utf8).write(to: dir.appendingPathComponent("sessions.json"))
+
+        let loaded = SessionStore(directory: dir)
+        XCTAssertEqual(loaded.sessions.count, 1)
+        XCTAssertEqual(loaded.sessions[0].polePhotoPath, "photos/old.jpg")
+
+        // Saving again writes the corrected key only.
+        loaded.updateSession(loaded.sessions[0])
+        let text = try String(contentsOf: dir.appendingPathComponent("sessions.json"))
+        XCTAssertTrue(text.contains("polePhotoPath"))
+        XCTAssertFalse(text.contains("polePotoPath"))
     }
 
     func testPhotoRoundTrip() throws {

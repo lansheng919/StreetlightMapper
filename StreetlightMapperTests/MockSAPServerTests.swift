@@ -86,6 +86,52 @@ final class MockSAPServerTests: XCTestCase {
         XCTAssertTrue(TestSupport.wait { self.server.receivedSessions.count == 1 })
     }
 
+    // MARK: photos (DEF-03)
+
+    private func putPhoto(_ name: String, _ bytes: Data) throws -> Int {
+        var req = URLRequest(url: URL(string: base + "/photos/" + name)!)
+        req.httpMethod = "PUT"
+        req.httpBody = bytes
+        req.timeoutInterval = 5
+        let done = expectation(description: "PUT \(name)")
+        var status = 0
+        URLSession(configuration: .ephemeral).dataTask(with: req) { _, resp, _ in
+            status = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            done.fulfill()
+        }.resume()
+        wait(for: [done], timeout: 6)
+        return status
+    }
+
+    func testPhotoPutThenGetReturnsIdenticalBytes() throws {
+        // Includes bytes that are invalid UTF-8 and CRLFCRLF, as real JPEG data can contain.
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x0D, 0x0A, 0x0D, 0x0A, 0xFE, 0x80, 0x00, 0xFF, 0xD9])
+        XCTAssertEqual(try putPhoto("pole_t.jpg", jpeg), 201)
+        XCTAssertEqual(server.photo(named: "photos/pole_t.jpg"), jpeg)
+
+        let done = expectation(description: "GET")
+        var got = Data(); var type = ""
+        URLSession(configuration: .ephemeral).dataTask(with: URL(string: base + "/photos/pole_t.jpg")!) { data, resp, _ in
+            got = data ?? Data()
+            type = (resp as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type") ?? ""
+            done.fulfill()
+        }.resume()
+        wait(for: [done], timeout: 6)
+        XCTAssertEqual(got, jpeg)
+        XCTAssertEqual(type, "image/jpeg")
+        XCTAssertTrue(TestSupport.wait { self.server.receivedPhotoCount == 1 })
+    }
+
+    func testMissingPhotoIs404AndEmptyPutIsRejected() throws {
+        XCTAssertEqual(try call("GET", "/photos/nope.jpg").status, 404)
+        XCTAssertEqual(try putPhoto("empty.jpg", Data()), 422)
+        XCTAssertNil(server.photo(named: "photos/empty.jpg"))
+    }
+
+    func testHealthRejectsNonGet() throws {
+        XCTAssertEqual(try call("POST", "/health", body: "{}").status, 405)
+    }
+
     func testHealth() throws {
         let r = try call("GET", "/health")
         XCTAssertEqual(r.status, 200)
@@ -166,5 +212,30 @@ final class MockSAPServerTests: XCTestCase {
         XCTAssertEqual(received.streetLights.map(\.serialNumber), ["E5000531", "E5000532"])
         XCTAssertEqual(received.streetLights.map(\.confidence), ["high", "manual"])
         XCTAssertTrue(TestSupport.wait { store.sessions.first?.syncStatus == .synced })
+    }
+
+    /// The photo files really reach the server, byte for byte, and the record points at them.
+    func testEndToEndPhotosArriveAtMockServer() throws {
+        let dir = TestSupport.tempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SessionStore(directory: dir)
+        let sync = SyncService(store: store,
+                               connectivity: ConnectivityMonitor(simulatedConnected: true),
+                               baseURL: URL(string: base)!,
+                               defaults: TestSupport.isolatedDefaults())
+        let workflow = WorkflowViewModel(store: store, sync: sync)
+
+        let poleJPEG = Data([0xFF, 0xD8, 0x0D, 0x0A, 0x0D, 0x0A, 0x80, 0xFF, 0xD9])
+        let lightJPEG = Data([0xFF, 0xD8, 0xC3, 0x28, 0xFF, 0xD9])
+        workflow.startNew()
+        workflow.poleIDCaptured(poleID: "5814901", confidence: .high, photoData: poleJPEG)
+        workflow.streetLightCaptured(serial: "E5000531", confidence: .high, photoData: lightJPEG)
+        workflow.saveSession()
+        workflow.syncCurrent()
+
+        XCTAssertTrue(TestSupport.wait(timeout: 8) { self.server.receivedSessions.count == 1 })
+        let received = try XCTUnwrap(server.receivedSessions.first)
+        XCTAssertEqual(server.photo(named: try XCTUnwrap(received.polePhotoPath)), poleJPEG)
+        XCTAssertEqual(server.photo(named: try XCTUnwrap(received.streetLights[0].photoPath)), lightJPEG)
     }
 }

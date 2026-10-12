@@ -32,6 +32,7 @@
 		C58D177C9D9C14DEEAEBA91D /* MockSAPServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E33DA0D7C85239C4FBA759DD /* MockSAPServerTests.swift */; };
 		C5EEAA980B439A331E505A31 /* CaptureViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7D4D332A6BF5155E68AAD3 /* CaptureViewModelTests.swift */; };
 		C697E484B4E293CBAB977C82 /* DebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C05E1C08CAD67B66170D5B /* DebugView.swift */; };
+		C8F1711893798A115AD85CC9 /* IndependentQATests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CE4DE49D23C6E139041933 /* IndependentQATests.swift */; };
 		D6EB6C6F597A4E7461894C48 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA5BE1E0824ADBD33E582933 /* CaptureViewModel.swift */; };
 		EF1217D94E077DB79A44F680 /* PoleIDExtractorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D459B360869ED318EB41314F /* PoleIDExtractorTests.swift */; };
 		F10C9220D2927037126DA189 /* CameraManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A94AA0BBB91D47F45D381C7 /* CameraManager.swift */; };
@@ -86,6 +87,7 @@
 		C558EB64B96AA71166468972 /* WorkflowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViewModel.swift; sourceTree = "<group>"; };
 		D459B360869ED318EB41314F /* PoleIDExtractorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoleIDExtractorTests.swift; sourceTree = "<group>"; };
 		E33DA0D7C85239C4FBA759DD /* MockSAPServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockSAPServerTests.swift; sourceTree = "<group>"; };
+		E3CE4DE49D23C6E139041933 /* IndependentQATests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndependentQATests.swift; sourceTree = "<group>"; };
 		F781AD1EFD8EDAE3CF06854E /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		FA5BE1E0824ADBD33E582933 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -143,6 +145,7 @@
 			isa = PBXGroup;
 			children = (
 				7A7D4D332A6BF5155E68AAD3 /* CaptureViewModelTests.swift */,
+				E3CE4DE49D23C6E139041933 /* IndependentQATests.swift */,
 				E33DA0D7C85239C4FBA759DD /* MockSAPServerTests.swift */,
 				D459B360869ED318EB41314F /* PoleIDExtractorTests.swift */,
 				223CA0F8A399E6B79EC5DE97 /* SessionStoreTests.swift */,
@@ -370,6 +373,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C5EEAA980B439A331E505A31 /* CaptureViewModelTests.swift in Sources */,
+				C8F1711893798A115AD85CC9 /* IndependentQATests.swift in Sources */,
 				C58D177C9D9C14DEEAEBA91D /* MockSAPServerTests.swift in Sources */,
 				EF1217D94E077DB79A44F680 /* PoleIDExtractorTests.swift in Sources */,
 				8102DC35FDBD6A671FD484FE /* SessionStoreTests.swift in Sources */,

@@ -81,6 +81,56 @@ final class SyncServiceTests: XCTestCase {
         XCTAssertFalse(store.session(id: s.id)!.canDelete)
     }
 
+    // MARK: photos are uploaded (DEF-03)
+
+    private func sessionWithPhotos() -> CaptureSession {
+        var s = CaptureSession(poleID: "208125", poleConfidence: .high,
+                               polePhotoPath: store.savePhoto(Data([0xFF, 0xD8, 1, 2]), name: "pole_a.jpg"))
+        s.addStreetLight(StreetLightEntry(sessionID: s.id, serialNumber: "E1", confidence: .high,
+                                          photoPath: store.savePhoto(Data([0xFF, 0xD8, 3]), name: "sl_a.jpg")))
+        s.addStreetLight(StreetLightEntry(sessionID: s.id, serialNumber: "E2", confidence: .manual,
+                                          photoPath: store.savePhoto(Data([0xFF, 0xD8, 4]), name: "sl_b.jpg")))
+        return s
+    }
+
+    func testPhotosAreUploadedAsRawJPEGBeforeTheRecord() {
+        makeSync(connected: true)
+        store.addSession(sessionWithPhotos())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced })
+
+        let methods = StubURLProtocol.requests.map { $0.httpMethod ?? "" }
+        XCTAssertEqual(methods.filter { $0 == "PUT" }.count, 3, "pole photo + two street light photos")
+        XCTAssertEqual(methods.last, "POST", "the record is sent only after every photo")
+
+        let urls = StubURLProtocol.requests.filter { $0.httpMethod == "PUT" }.compactMap { $0.url?.absoluteString }
+        XCTAssertEqual(Set(urls), ["http://stub.invalid/api/v1/photos/pole_a.jpg",
+                                   "http://stub.invalid/api/v1/photos/sl_a.jpg",
+                                   "http://stub.invalid/api/v1/photos/sl_b.jpg"])
+        XCTAssertEqual(StubURLProtocol.requests.first { $0.httpMethod == "PUT" }?.value(forHTTPHeaderField: "Content-Type"),
+                       "image/jpeg")
+        XCTAssertTrue(StubURLProtocol.bodies.contains(Data([0xFF, 0xD8, 1, 2])), "actual image bytes are sent")
+    }
+
+    func testFailedPhotoUploadStopsTheRecordAndKeepsItQueued() {
+        makeSync(connected: true)
+        StubURLProtocol.statusCode = 500
+        store.addSession(sessionWithPhotos())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .failed })
+        XCTAssertFalse(StubURLProtocol.requests.contains { $0.httpMethod == "POST" },
+                       "no record is created on the server when its photos did not arrive")
+        XCTAssertTrue(store.sessions[0].canDelete)
+    }
+
+    func testCaptureWithoutPhotosStillSyncs() {
+        makeSync(connected: true)
+        store.addSession(TestSupport.makeSession())
+        sync.syncAll()
+        XCTAssertTrue(TestSupport.wait { self.store.sessions[0].syncStatus == .synced })
+        XCTAssertEqual(StubURLProtocol.requests.map { $0.httpMethod }, ["POST"])
+    }
+
     // MARK: offline
 
     func testOfflineKeepsSessionsQueuedAndSendsNothing() {
