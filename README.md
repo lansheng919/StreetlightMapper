@@ -86,7 +86,7 @@ StreetlightMapper/
 ### 2. Street Light QR Capture
 - `VNDetectBarcodesRequest` targets QR, Code 128, and Data Matrix symbologies.
 - Auto-capture after 3 identical reads. A QR code either decodes or it does not, so the HUD shows a plain status ("QR code read", "Hold steady…") instead of a percentage; only OCR shows a percentage.
-- **Duplicate protection:** a serial number already captured on the same pole (compared ignoring case and spaces) is shown in red as "Already captured on this pole", never auto-captures, and is refused if typed in by hand or when editing another light. The same serial on a *different* pole is allowed.
+- **Duplicate protection:** a serial number must be unique across **all** captures (compared ignoring case and spaces), whether on the same pole or any other saved one. A repeat is shown in red as "Serial already captured", never auto-captures, and is refused if typed in by hand or when editing another light.
 - **Back to Review** returns to the review list without adding another light.
 - Header shows a running count of street lights captured for the current pole.
 

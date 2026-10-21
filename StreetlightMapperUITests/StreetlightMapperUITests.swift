@@ -218,7 +218,7 @@ final class StreetlightMapperUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.clearAndType("E5000531")
         XCTAssertTrue(app.staticTexts["edit.duplicateError"].waitForExistence(timeout: 5)
-                      || app.staticTexts["This serial number is already on this pole."].exists)
+                      || app.staticTexts["This serial number is already captured."].exists)
         XCTAssertFalse(app.buttons["Save"].isEnabled)
         field.clearAndType("E5000599")
         XCTAssertTrue(app.buttons["Save"].isEnabled)

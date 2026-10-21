@@ -214,7 +214,7 @@ final class WorkflowViewModelTests: XCTestCase {
         XCTAssertEqual(store.sessions[0].poleID, "208125", "unsaved edit is not stored")
     }
 
-    // MARK: duplicate serial numbers (DEF-02)
+    // MARK: duplicate serial numbers (DEF-02, unique across all captures)
 
     func testSameSerialCannotBeAddedTwiceToOnePole() {
         captureFullSession(lights: ["E1"])
@@ -239,13 +239,38 @@ final class WorkflowViewModelTests: XCTestCase {
         XCTAssertEqual(before, after)
     }
 
-    func testSameSerialIsAllowedOnADifferentPole() {
+    func testSameSerialIsRefusedOnADifferentPole() {
         captureFullSession(lights: ["E1"])
         workflow.saveSession()
         workflow.exit(); workflow.cleanupAfterDismiss()
         workflow.startNew()
         workflow.poleIDCaptured(poleID: "999999", confidence: .high, photoData: nil)
-        XCTAssertTrue(workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: nil))
+        XCTAssertTrue(workflow.isDuplicateSerial("e1 "))
+        XCTAssertFalse(workflow.streetLightCaptured(serial: "E1", confidence: .high, photoData: nil))
+        XCTAssertEqual(workflow.session?.streetLights.count, 0)
+        XCTAssertTrue(workflow.streetLightCaptured(serial: "E2", confidence: .high, photoData: nil))
+    }
+
+    func testEditingASerialToAnotherPolesValueIsRefused() {
+        captureFullSession(lights: ["E1"])
+        workflow.saveSession()
+        workflow.exit(); workflow.cleanupAfterDismiss()
+        workflow.startNew()
+        workflow.poleIDCaptured(poleID: "999999", confidence: .high, photoData: nil)
+        workflow.streetLightCaptured(serial: "E2", confidence: .high, photoData: nil)
+        let id = workflow.session!.streetLights[0].id
+        workflow.updateSerial(lightID: id, value: "E1")
+        XCTAssertEqual(workflow.session?.streetLights[0].serialNumber, "E2")
+    }
+
+    func testEditingASavedCaptureDoesNotConflictWithItself() {
+        captureFullSession(lights: ["E1", "E2"])
+        workflow.saveSession()
+        workflow.exit(); workflow.cleanupAfterDismiss()
+        workflow.edit(store.sessions[0])
+        XCTAssertFalse(workflow.isDuplicateSerial("E1", excluding: workflow.session!.streetLights[0].id))
+        workflow.updateSerial(lightID: workflow.session!.streetLights[0].id, value: "E3")
+        XCTAssertEqual(workflow.session?.streetLights[0].serialNumber, "E3")
     }
 
     func testEditingASerialToAnotherLightsValueIsRefused() {

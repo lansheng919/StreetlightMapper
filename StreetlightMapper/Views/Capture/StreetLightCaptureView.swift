@@ -23,7 +23,7 @@ struct StreetLightCaptureView: View {
                 prompt: "Point at street light QR code",
                 showsPercentage: false,                 // a QR either decodes or it doesn't
                 isRejected: vm.isRejected,
-                rejectedLabel: "Already captured on this pole"
+                rejectedLabel: "Serial already captured"
             )
 
             // Top header
@@ -76,7 +76,7 @@ struct StreetLightCaptureView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            vm.rejectionMessage = "This serial number is already captured on this pole."
+            vm.rejectionMessage = "This serial number is already captured."
             vm.shouldReject = { serial in workflow.isDuplicateSerial(serial) }
         }
         .onDisappear { vm.stop() }

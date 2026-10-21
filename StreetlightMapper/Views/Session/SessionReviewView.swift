@@ -241,8 +241,8 @@ struct SessionReviewView: View {
                 isNumeric: false,
                 validate: { !$0.isEmpty },
                 conflict: { value in
-                    workflow.session?.hasSerial(value, excluding: id) == true
-                        ? "This serial number is already on this pole."
+                    workflow.isDuplicateSerial(value, excluding: id)
+                        ? "This serial number is already captured."
                         : nil
                 }
             ) { workflow.updateSerial(lightID: id, value: $0) }
